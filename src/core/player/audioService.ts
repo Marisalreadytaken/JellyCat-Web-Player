@@ -1,0 +1,373 @@
+import { create } from "zustand";
+import type { RepeatMode, Track } from "@domain/types";
+import { ticksToSeconds } from "@domain/types";
+import { jellyfinClient } from "@core/jellyfin";
+import { useLyricsStore } from "./lyricsService";
+
+interface PlayerState {
+  queue: Track[];
+  originalQueue: Track[];
+  currentTrack: Track | null;
+  isPlaying: boolean;
+  isShuffled: boolean;
+  repeatMode: RepeatMode;
+  currentTimeSeconds: number;
+  durationSeconds: number;
+  volume: number;
+}
+
+interface PlayerStore extends PlayerState {
+  play: (tracks: Track[], startingAt: number) => void;
+  togglePlayPause: () => void;
+  nextTrack: () => void;
+  previousTrack: () => void;
+  seek: (seconds: number) => void;
+  setVolume: (volume: number) => void;
+  toggleShuffle: () => void;
+  toggleRepeatMode: () => void;
+  jumpTo: (index: number) => void;
+  addToQueue: (track: Track) => void;
+  playNext: (track: Track) => void;
+  removeFromQueue: (index: number) => void;
+  moveQueueItem: (source: number, destination: number) => void;
+  clearQueue: () => void;
+}
+
+const initialPlayerState: PlayerState = {
+  queue: [],
+  originalQueue: [],
+  currentTrack: null,
+  isPlaying: false,
+  isShuffled: false,
+  repeatMode: "none",
+  currentTimeSeconds: 0,
+  durationSeconds: 0,
+  volume: 1
+};
+
+class BrowserAudioService {
+  private audio = new Audio();
+  private preloader = new Audio();
+  private lastReportedProgress = -1;
+  private processingAdvance = false;
+
+  constructor() {
+    this.audio.preload = "auto";
+    this.audio.addEventListener("timeupdate", () => this.onTimeUpdate());
+    this.audio.addEventListener("durationchange", () => this.onDurationChange());
+    this.audio.addEventListener("ended", () => this.onEnded());
+  }
+
+  play(tracks: Track[], startingAt: number): void {
+    if (startingAt < 0 || startingAt >= tracks.length) return;
+    const state = usePlayerStore.getState();
+    const startingTrack = tracks[startingAt];
+    const queue = state.isShuffled
+      ? [startingTrack, ...tracks.filter((track) => track.id !== startingTrack.id).sort(() => Math.random() - 0.5)]
+      : tracks;
+    usePlayerStore.setState({
+      originalQueue: tracks,
+      queue,
+      currentTrack: state.isShuffled ? queue[0] : startingTrack,
+      currentTimeSeconds: 0,
+      durationSeconds: ticksToSeconds(startingTrack.durationTicks)
+    });
+    void this.loadCurrentAndPlay();
+  }
+
+  async togglePlayPause(): Promise<void> {
+    const state = usePlayerStore.getState();
+    if (!state.currentTrack) return;
+    if (state.isPlaying) {
+      this.audio.pause();
+      usePlayerStore.setState({ isPlaying: false });
+      this.updateMediaSession();
+      void jellyfinClient.reportPlaybackProgress(state.currentTrack.id, this.audio.currentTime, true);
+    } else {
+      await this.audio.play().catch(() => undefined);
+      usePlayerStore.setState({ isPlaying: !this.audio.paused });
+      this.updateMediaSession();
+    }
+  }
+
+  nextTrack(): void {
+    if (this.processingAdvance) return;
+    this.processingAdvance = true;
+    window.setTimeout(() => {
+      this.processingAdvance = false;
+    }, 350);
+
+    const state = usePlayerStore.getState();
+    if (!state.currentTrack) return;
+    const currentIndex = state.queue.findIndex((track) => track.id === state.currentTrack?.id);
+    const nextIndex = currentIndex + 1;
+    if (nextIndex < state.queue.length) {
+      usePlayerStore.setState({ currentTrack: state.queue[nextIndex], currentTimeSeconds: 0 });
+      void this.loadCurrentAndPlay();
+    } else if (state.repeatMode === "all" && state.originalQueue.length) {
+      this.play(state.originalQueue, 0);
+    } else {
+      this.audio.pause();
+      usePlayerStore.setState({ isPlaying: false });
+      void jellyfinClient.reportPlaybackStopped(state.currentTrack.id, this.audio.currentTime);
+    }
+  }
+
+  previousTrack(): void {
+    const state = usePlayerStore.getState();
+    if (!state.currentTrack) return;
+    if (this.audio.currentTime > 3) {
+      this.seek(0);
+      return;
+    }
+    const currentIndex = state.queue.findIndex((track) => track.id === state.currentTrack?.id);
+    const previousIndex = currentIndex - 1;
+    if (previousIndex >= 0) {
+      usePlayerStore.setState({ currentTrack: state.queue[previousIndex], currentTimeSeconds: 0 });
+      void this.loadCurrentAndPlay();
+    } else {
+      this.seek(0);
+    }
+  }
+
+  seek(seconds: number): void {
+    const state = usePlayerStore.getState();
+    const next = Math.max(0, Math.min(seconds, state.durationSeconds || seconds));
+    this.audio.currentTime = next;
+    usePlayerStore.setState({ currentTimeSeconds: next });
+    this.updateMediaSession();
+  }
+
+  setVolume(volume: number): void {
+    const next = Math.max(0, Math.min(1, volume));
+    this.audio.volume = next;
+    usePlayerStore.setState({ volume: next });
+  }
+
+  toggleShuffle(): void {
+    const state = usePlayerStore.getState();
+    if (!state.isShuffled) {
+      const current = state.currentTrack;
+      const remaining = state.queue.filter((track) => track.id !== current?.id).sort(() => Math.random() - 0.5);
+      usePlayerStore.setState({
+        isShuffled: true,
+        originalQueue: state.queue,
+        queue: current ? [current, ...remaining] : remaining
+      });
+    } else {
+      usePlayerStore.setState({
+        isShuffled: false,
+        queue: state.originalQueue.length ? state.originalQueue : state.queue
+      });
+    }
+    this.preloadNext();
+    this.updateMediaSession();
+  }
+
+  toggleRepeatMode(): void {
+    const state = usePlayerStore.getState();
+    const repeatMode: RepeatMode = state.repeatMode === "none" ? "all" : state.repeatMode === "all" ? "one" : "none";
+    usePlayerStore.setState({ repeatMode });
+    this.updateMediaSession();
+  }
+
+  jumpTo(index: number): void {
+    const state = usePlayerStore.getState();
+    if (index < 0 || index >= state.queue.length) return;
+    usePlayerStore.setState({ currentTrack: state.queue[index], currentTimeSeconds: 0 });
+    void this.loadCurrentAndPlay();
+  }
+
+  addToQueue(track: Track): void {
+    const state = usePlayerStore.getState();
+    usePlayerStore.setState({
+      queue: [...state.queue, track],
+      originalQueue: [...state.originalQueue, track]
+    });
+    if (!state.currentTrack) {
+      usePlayerStore.setState({ currentTrack: track });
+      void this.loadCurrentAndPlay();
+    } else {
+      this.preloadNext();
+    }
+  }
+
+  playNext(track: Track): void {
+    const state = usePlayerStore.getState();
+    if (!state.currentTrack) {
+      this.addToQueue(track);
+      return;
+    }
+    const currentIndex = state.queue.findIndex((queued) => queued.id === state.currentTrack?.id);
+    const queue = [...state.queue];
+    queue.splice(currentIndex + 1, 0, track);
+    usePlayerStore.setState({ queue, originalQueue: queue });
+    this.preloadNext();
+  }
+
+  removeFromQueue(index: number): void {
+    const state = usePlayerStore.getState();
+    if (index < 0 || index >= state.queue.length) return;
+    const removingCurrent = state.queue[index].id === state.currentTrack?.id;
+    const queue = state.queue.filter((_, itemIndex) => itemIndex !== index);
+    usePlayerStore.setState({ queue, originalQueue: queue });
+    if (removingCurrent) {
+      if (!queue.length) this.clearQueue();
+      else {
+        usePlayerStore.setState({ currentTrack: queue[Math.min(index, queue.length - 1)] });
+        void this.loadCurrentAndPlay();
+      }
+    }
+  }
+
+  moveQueueItem(source: number, destination: number): void {
+    const state = usePlayerStore.getState();
+    const queue = [...state.queue];
+    const [item] = queue.splice(source, 1);
+    if (!item) return;
+    queue.splice(destination, 0, item);
+    usePlayerStore.setState({ queue, originalQueue: queue });
+  }
+
+  clearQueue(): void {
+    const state = usePlayerStore.getState();
+    if (state.currentTrack) void jellyfinClient.reportPlaybackStopped(state.currentTrack.id, this.audio.currentTime);
+    this.audio.pause();
+    this.audio.removeAttribute("src");
+    usePlayerStore.setState({ ...initialPlayerState, volume: state.volume });
+  }
+
+  private async loadCurrentAndPlay(): Promise<void> {
+    const track = usePlayerStore.getState().currentTrack;
+    if (!track) return;
+    this.lastReportedProgress = -1;
+    const previous = usePlayerStore.getState().currentTrack;
+    if (previous && previous.id !== track.id) void jellyfinClient.reportPlaybackStopped(previous.id, this.audio.currentTime);
+    const src = await this.resolveSource(track);
+    this.audio.src = src;
+    this.audio.load();
+    await useLyricsStore.getState().fetchLyrics(track);
+    await this.audio.play().catch(() => undefined);
+    usePlayerStore.setState({
+      isPlaying: !this.audio.paused,
+      durationSeconds: ticksToSeconds(track.durationTicks)
+    });
+    this.preloadNext();
+    this.updateMediaSession();
+    void jellyfinClient.reportPlaybackStarted(track.id);
+  }
+
+  private async resolveSource(track: Track): Promise<string> {
+    return jellyfinClient.getStreamUrl(track.id);
+  }
+
+  private async preloadNext(): Promise<void> {
+    const state = usePlayerStore.getState();
+    if (!state.currentTrack) return;
+    const index = state.queue.findIndex((track) => track.id === state.currentTrack?.id);
+    const next = state.queue[index + 1];
+    if (!next) return;
+    this.preloader.src = await this.resolveSource(next);
+    this.preloader.preload = "auto";
+    this.preloader.load();
+  }
+
+  private onTimeUpdate(): void {
+    const state = usePlayerStore.getState();
+    const current = Math.min(this.audio.currentTime, state.durationSeconds || this.audio.currentTime);
+    usePlayerStore.setState({
+      currentTimeSeconds: current,
+      durationSeconds: Number.isFinite(this.audio.duration) ? this.audio.duration : state.durationSeconds
+    });
+    useLyricsStore.getState().updateCurrentLine(current);
+    const whole = Math.floor(current);
+    if (state.currentTrack && whole > 0 && whole % 10 === 0 && whole !== this.lastReportedProgress) {
+      this.lastReportedProgress = whole;
+      void jellyfinClient.reportPlaybackProgress(state.currentTrack.id, current, !state.isPlaying);
+    }
+    this.updatePositionState();
+  }
+
+  private onDurationChange(): void {
+    if (Number.isFinite(this.audio.duration)) {
+      usePlayerStore.setState({ durationSeconds: this.audio.duration });
+    }
+  }
+
+  private onEnded(): void {
+    const state = usePlayerStore.getState();
+    if (state.repeatMode === "one") {
+      this.seek(0);
+      void this.audio.play();
+      return;
+    }
+    this.nextTrack();
+  }
+
+  private updateMediaSession(): void {
+    const state = usePlayerStore.getState();
+    if (!("mediaSession" in navigator) || !state.currentTrack) return;
+    const track = state.currentTrack;
+    const artwork = track.artworkItemId
+      ? [{ src: jellyfinClient.artworkUrl(track.artworkItemId, track.artworkTag, 512), sizes: "512x512", type: "image/jpeg" }]
+      : [];
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title: track.title,
+      artist: track.artistName,
+      album: track.albumName,
+      artwork
+    });
+    navigator.mediaSession.playbackState = state.isPlaying ? "playing" : "paused";
+    const handlers: Partial<Record<MediaSessionAction, MediaSessionActionHandler>> = {
+      play: () => void this.togglePlayPause(),
+      pause: () => void this.togglePlayPause(),
+      previoustrack: () => this.previousTrack(),
+      nexttrack: () => this.nextTrack(),
+      seekto: (details) => {
+        if (details.seekTime !== undefined) this.seek(details.seekTime);
+      }
+    };
+    for (const [action, handler] of Object.entries(handlers)) {
+      try {
+        navigator.mediaSession.setActionHandler(action as MediaSessionAction, handler ?? null);
+      } catch {
+        // Some browsers expose only a subset of actions.
+      }
+    }
+    this.updatePositionState();
+  }
+
+  private updatePositionState(): void {
+    const state = usePlayerStore.getState();
+    if (!("mediaSession" in navigator) || !navigator.mediaSession.setPositionState || !state.currentTrack) return;
+    try {
+      navigator.mediaSession.setPositionState({
+        duration: Math.max(1, state.durationSeconds),
+        playbackRate: 1,
+        position: Math.min(state.currentTimeSeconds, Math.max(1, state.durationSeconds))
+      });
+    } catch {
+      // Position state can throw for incomplete durations.
+    }
+  }
+}
+
+export const audioService = new BrowserAudioService();
+
+export const usePlayerStore = create<PlayerStore>(() => ({
+  ...initialPlayerState,
+  play: (tracks, startingAt) => audioService.play(tracks, startingAt),
+  togglePlayPause: () => void audioService.togglePlayPause(),
+  nextTrack: () => audioService.nextTrack(),
+  previousTrack: () => audioService.previousTrack(),
+  seek: (seconds) => audioService.seek(seconds),
+  setVolume: (volume) => audioService.setVolume(volume),
+  toggleShuffle: () => audioService.toggleShuffle(),
+  toggleRepeatMode: () => audioService.toggleRepeatMode(),
+  jumpTo: (index) => audioService.jumpTo(index),
+  addToQueue: (track) => audioService.addToQueue(track),
+  playNext: (track) => audioService.playNext(track),
+  removeFromQueue: (index) => audioService.removeFromQueue(index),
+  moveQueueItem: (source, destination) => audioService.moveQueueItem(source, destination),
+  clearQueue: () => audioService.clearQueue()
+}));

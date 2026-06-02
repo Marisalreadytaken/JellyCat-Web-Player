@@ -1,0 +1,6 @@
+services:
+  jellycat:
+    image: maralreadytaken/jellycat:latest
+    ports:
+      - "3003:80"
+    restart: unless-stopped

@@ -1,0 +1,13 @@
+node_modules/
+dist/
+dist-ssr/
+.env*
+.vercel/
+.vite/
+test-results/
+playwright-report/
+screenshots/
+artifacts/
+*.log
+*.tsbuildinfo
+.DS_Store
