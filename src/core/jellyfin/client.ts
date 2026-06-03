@@ -10,10 +10,27 @@ import type { ItemsResponse, JellyfinLyricsResponse, ServerCheckResult, TracksPa
 const clientInfo = { name: "JellyCat Web", version: "1.0.0" };
 const deviceIdKey = "jellycat:web:deviceId";
 
+function createDeviceId(): string {
+  if (globalThis.crypto?.randomUUID) {
+    return globalThis.crypto.randomUUID();
+  }
+
+  if (globalThis.crypto?.getRandomValues) {
+    const bytes = new Uint8Array(16);
+    globalThis.crypto.getRandomValues(bytes);
+    bytes[6] = (bytes[6] & 0x0f) | 0x40;
+    bytes[8] = (bytes[8] & 0x3f) | 0x80;
+    const hex = Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+    return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+  }
+
+  return `jellycat-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 14)}`;
+}
+
 function getDeviceId(): string {
   const existing = localStorage.getItem(deviceIdKey);
   if (existing) return existing;
-  const next = crypto.randomUUID();
+  const next = createDeviceId();
   localStorage.setItem(deviceIdKey, next);
   return next;
 }
@@ -442,4 +459,4 @@ class JellyfinClient {
 }
 
 export const jellyfinClient = new JellyfinClient();
-export const jellyfinInternals = { mapTrack, mapAlbum, mapArtist, mapPlaylist, mapLyrics, encodeQuery, maybeCorsDiagnostic };
+export const jellyfinInternals = { createDeviceId, mapTrack, mapAlbum, mapArtist, mapPlaylist, mapLyrics, encodeQuery, maybeCorsDiagnostic };

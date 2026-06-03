@@ -1,5 +1,14 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { friendlyErrorMessage, JellyfinRequestError, jellyfinInternals } from "@core/jellyfin";
+
+const originalRandomUUID = globalThis.crypto.randomUUID;
+
+afterEach(() => {
+  if (originalRandomUUID) {
+    vi.spyOn(globalThis.crypto, "randomUUID").mockImplementation(originalRandomUUID);
+  }
+  vi.restoreAllMocks();
+});
 
 describe("jellyfin mappings", () => {
   it("preserves lowerCamelCase query keys expected by Jellyfin", () => {
@@ -76,6 +85,14 @@ describe("jellyfin mappings", () => {
     });
 
     expect(lyrics).toEqual({ lines: [], plainLyrics: "first line\nsecond line" });
+  });
+});
+
+describe("device id generation", () => {
+  it("falls back when crypto.randomUUID is unavailable", () => {
+    vi.spyOn(globalThis.crypto, "randomUUID").mockImplementation(undefined as never);
+
+    expect(jellyfinInternals.createDeviceId()).toMatch(/^[\da-f]{8}-[\da-f]{4}-4[\da-f]{3}-[\da-f]{4}-[\da-f]{12}$/);
   });
 });
 
