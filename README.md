@@ -1,6 +1,6 @@
-# JellyCat SPA
+# JellyCat Web Music Player
 
-JellyCat SPA is a static browser client for Jellyfin music libraries. The app has no backend: your browser connects directly to your Jellyfin server.
+JellyCat is a static browser client for Jellyfin music libraries. The app has no backend: your browser connects directly to your Jellyfin server.
 
 ## Run From Docker Hub
 
@@ -9,46 +9,24 @@ docker pull maralreadytaken/jellycat:latest
 docker run -d -p 3003:80 maralreadytaken/jellycat:latest
 ```
 
-Then open `http://localhost:3003`.
+Then open `http://yourip:3003`.
 
 You can also use Docker Compose:
 
-```bash
+```
+services:
+  jellycat:
+    image: maralreadytaken/jellycat:latest
+    ports:
+      - "3003:80"
+    restart: unless-stopped
+```
+```
 docker compose up -d
 ```
 
-`docker-compose.yml` uses the published `maralreadytaken/jellycat:latest` image and maps host port `3003` to container port `80`.
+`docker-compose.yml` uses the published `maralreadytaken/jellycat:latest` image.
 
-## Docker Tags
-
-Docker image tags correspond to `package.json` versions.
-
-- `maralreadytaken/jellycat:latest` tracks the latest published `main` build.
-- `maralreadytaken/jellycat:1.0.1` corresponds to `package.json` version `1.0.1`.
-- Git tags like `v1.0.1` publish the Docker tag `1.0.1`.
-
-## Local Development
-
-```bash
-npm install
-npm run dev
-```
-
-The development server defaults to `http://127.0.0.1:5173`.
-
-To build the hosted/default app:
-
-```bash
-npm run build
-```
-
-To run the verification suite:
-
-```bash
-npm run lint
-npm test
-npm run e2e
-```
 
 To build the self-hosted Docker image locally:
 
@@ -56,7 +34,7 @@ To build the self-hosted Docker image locally:
 docker buildx build --platform linux/amd64,linux/arm64 -t maralreadytaken/jellycat:local .
 ```
 
-The Docker build disables Vercel Analytics with `VITE_ENABLE_ANALYTICS=false`. The hosted/default build keeps analytics enabled.
+The Docker build disables Vercel Analytics with `VITE_ENABLE_ANALYTICS=false`. The hosted/default build keeps analytics enabled, this analytics are only to know the people interested in the web player.
 
 ## Source Structure
 
@@ -76,22 +54,7 @@ src/
   test/             Unit test setup
 ```
 
-Cross-area imports use path aliases:
 
-- `@app/*`
-- `@core/*`
-- `@domain/*`
-- `@features/*`
-- `@shared/*`
-- `@styles/*`
-
-Keep relative imports for nearby files inside the same feature/module folder.
-
-## Git Hygiene
-
-Generated and local-only files are ignored, including `node_modules/`, `dist/`, `.vite/`, `.vercel/`, `test-results/`, `playwright-report/`, `*.tsbuildinfo`, `.DS_Store`, and `artifacts/`.
-
-You do not need to delete `node_modules/` before committing or pushing; Git will ignore it. Screenshots generated for local review live under `artifacts/screenshots/` and are also ignored.
 
 ## Jellyfin Browser Requirements
 
