@@ -13,7 +13,19 @@ export function SettingsView() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [cacheMessage, setCacheMessage] = useState("");
-  const { session, authPersistence, theme, setTheme, immersivePlayerBackground, setImmersivePlayerBackground, setSession, connection, checkConnection } = useAppStore();
+  const {
+    session,
+    authPersistence,
+    theme,
+    setTheme,
+    immersivePlayerBackground,
+    setImmersivePlayerBackground,
+    localJellyfinLyrics,
+    setLocalJellyfinLyrics,
+    setSession,
+    connection,
+    checkConnection
+  } = useAppStore();
   const clearRecentActivity = useRecentActivityStore((state) => state.clear);
 
   const clearCache = () => {
@@ -56,6 +68,14 @@ export function SettingsView() {
             <span>IMMERSIVE PLAYER BACKGROUND</span>
             <span className="spacer" />
             <input type="checkbox" checked={immersivePlayerBackground} onChange={(event) => setImmersivePlayerBackground(event.target.checked)} />
+          </label>
+        </section>
+        <section className="settings-section">
+          <Section title="LYRICS" />
+          <label className="settings-row">
+            <span>LOCAL JELLYFIN LYRICS</span>
+            <span className="spacer" />
+            <input type="checkbox" checked={localJellyfinLyrics} onChange={(event) => setLocalJellyfinLyrics(event.target.checked)} />
           </label>
         </section>
         <section className="settings-section">

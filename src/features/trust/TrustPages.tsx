@@ -55,7 +55,7 @@ export function PrivacyPage() {
       <p>JellyCat stores visual preferences, search history, recent activity, sorting preferences, and a Jellyfin device ID in this browser. Login is session-only by default.</p>
       <p>If you choose “Remember this browser,” JellyCat stores your Jellyfin access token on this device until you disconnect or clear site data.</p>
       <Section title="LYRICS" />
-      <p>When lyrics are opened, JellyCat requests lyrics from LRCLIB using artist name, album name, track title, and duration.</p>
+      <p>When lyrics are opened, JellyCat requests lyrics from the server or fallbacks to LRCLIB using artist name, album name, track title, and duration.</p>
       <Section title="ANALYTICS" />
       <p>The hosted online version may use Vercel Analytics for anonymous route-level usage measurement. Self-hosted Docker builds disable analytics.</p>
     </TrustShell>
@@ -96,6 +96,8 @@ export function CurrentlyOnPage() {
       <p>This page tracks the work currently being considered for JellyCat. Items here are plans and priorities, not guaranteed release dates or support commitments.</p>
       <Section title="WEB SPA" />
       <p>Polish the public web client, verify production hosting behavior, and keep browser playback, queue, search, and library flows working smoothly.</p>
+      <Section title="WEB HOSTING" />
+      <p>Polish and test the docker image to run JellyCat locally best way possible.</p>
       <Section title="JELLYFIN COMPATIBILITY" />
       <p>Improve guidance for CORS, mixed-content, and server configuration issues that can affect browser-based Jellyfin clients. If you´re having trouble connecting to Jellyfin, make sure you´re using an exposed HTTPS URL and not a local one.</p>
       <Section title="QUALITY" />
@@ -109,6 +111,8 @@ export function CurrentlyOnPage() {
 export function ChangelogPage() {
   return (
     <TrustShell title="CHANGELOG">
+      <Section title="0.3.0" />
+      <p>Implemented docker image, github actions to build and push to docker hub, implemented button to limit playlist items shown and implementation for local lyrics from Jellyfin.</p>
       <Section title="0.2.0" />
       <p>Ui polishing, optimized queries, jellyfin compatibility improvements, changes and polish of some layouts.</p>
       <Section title="0.1.0" />

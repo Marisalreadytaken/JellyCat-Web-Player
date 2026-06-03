@@ -6,6 +6,7 @@ export const storageKeys = {
   session: `${prefix}session`,
   theme: `${prefix}theme`,
   immersivePlayerBackground: `${prefix}immersivePlayerBackground`,
+  localJellyfinLyrics: `${prefix}localJellyfinLyrics`,
   searchHistory: `${prefix}searchHistory`,
   recentActivity: `${prefix}recentActivity`
 };
@@ -79,6 +80,12 @@ export const preferenceStorage = {
   },
   saveImmersive(value: boolean): void {
     saveJson(storageKeys.immersivePlayerBackground, value);
+  },
+  loadLocalJellyfinLyrics(): boolean {
+    return loadJson<boolean>(storageKeys.localJellyfinLyrics, true);
+  },
+  saveLocalJellyfinLyrics(value: boolean): void {
+    saveJson(storageKeys.localJellyfinLyrics, value);
   },
   loadSearchHistory(): string[] {
     return loadJson<string[]>(storageKeys.searchHistory, []);

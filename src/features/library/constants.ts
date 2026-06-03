@@ -1,5 +1,6 @@
 export const SONGS_PAGE_SIZE = 200;
 export const SONGS_CACHE_TIME_MS = 30 * 60 * 1000;
+export const playlistLimitModeKey = "jellycat:playlist:limitMode";
 export const playlistSortKey = "jellycat:playlist:sort";
 
 export type PlaylistSort = "index" | "name" | "recent";

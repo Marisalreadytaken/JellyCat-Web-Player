@@ -1,11 +1,11 @@
 import { Jellyfin } from "@jellyfin/sdk";
-import type { Album, Artist, AuthSession, Playlist, SearchResults, Track } from "@domain/types";
+import type { Album, Artist, AuthSession, LyricsPayload, Playlist, SearchResults, Track } from "@domain/types";
 import { normalizeBaseUrl } from "@domain/types";
 import { JellyfinRequestError, maybeCorsDiagnostic } from "./errors";
 import { arrayBufferToBase64, detectMimeType } from "./media";
-import { mapAlbum, mapArtist, mapPlaylist, mapTrack } from "./mappers";
+import { mapAlbum, mapArtist, mapLyrics, mapPlaylist, mapTrack } from "./mappers";
 import { encodeQuery } from "./query";
-import type { ItemsResponse, ServerCheckResult, TracksPage } from "./types";
+import type { ItemsResponse, JellyfinLyricsResponse, ServerCheckResult, TracksPage } from "./types";
 
 const clientInfo = { name: "JellyCat Web", version: "0.2.0" };
 const deviceIdKey = "jellycat:web:deviceId";
@@ -163,15 +163,22 @@ class JellyfinClient {
   }
 
   async getPlaylists(): Promise<Playlist[]> {
+    return (await this.getPlaylistsPage()).playlists;
+  }
+
+  async getPlaylistsPage({ limit, startIndex }: { limit?: number; startIndex?: number } = {}): Promise<{ playlists: Playlist[]; total: number }> {
     const session = this.requireSession();
     const data = await this.request<ItemsResponse>(`/Users/${session.userId}/Items?${encodeQuery([
       ["includeItemTypes", "Playlist"],
       ["recursive", "true"],
       ["sortBy", "SortName"],
       ["sortOrder", "Ascending"],
-      ["fields", "ChildCount,PrimaryImageAspectRatio"]
+      ["fields", "ChildCount,PrimaryImageAspectRatio"],
+      ["startIndex", startIndex],
+      ["limit", limit]
     ])}`);
-    return data.Items.map(mapPlaylist);
+    const playlists = data.Items.map(mapPlaylist);
+    return { playlists, total: data.TotalRecordCount ?? playlists.length };
   }
 
   async createPlaylist(name: string): Promise<void> {
@@ -225,12 +232,19 @@ class JellyfinClient {
   }
 
   async getPlaylistTracks(playlistId: string): Promise<Track[]> {
+    return (await this.getPlaylistTracksPage(playlistId)).tracks;
+  }
+
+  async getPlaylistTracksPage(playlistId: string, { limit, startIndex }: { limit?: number; startIndex?: number } = {}): Promise<TracksPage> {
     const session = this.requireSession();
     const data = await this.request<ItemsResponse>(`/Playlists/${playlistId}/Items?${encodeQuery([
       ["userId", session.userId],
-      ["fields", "PrimaryImageAspectRatio,ParentId,AlbumId,AlbumPrimaryImageTag,PlaylistItemId,Container,MediaSources,PlayCount,DateCreated"]
+      ["fields", "PrimaryImageAspectRatio,ParentId,AlbumId,AlbumPrimaryImageTag,PlaylistItemId,Container,MediaSources,PlayCount,DateCreated"],
+      ["startIndex", startIndex],
+      ["limit", limit]
     ])}`);
-    return data.Items.map((item) => mapTrack(item, playlistId));
+    const tracks = data.Items.map((item) => mapTrack(item, playlistId));
+    return { tracks, total: data.TotalRecordCount ?? tracks.length };
   }
 
   async getAlbumTracks(albumId: string): Promise<Track[]> {
@@ -293,6 +307,11 @@ class JellyfinClient {
       if (item.Type === "Audio") results.tracks.push(mapTrack(item));
     }
     return results;
+  }
+
+  async getLyrics(trackId: string): Promise<LyricsPayload | null> {
+    const data = await this.request<JellyfinLyricsResponse>(`/Audio/${trackId}/Lyrics`);
+    return mapLyrics(data);
   }
 
   getStreamUrl(trackId: string): string {
@@ -423,4 +442,4 @@ class JellyfinClient {
 }
 
 export const jellyfinClient = new JellyfinClient();
-export const jellyfinInternals = { mapTrack, mapAlbum, mapArtist, mapPlaylist, encodeQuery, maybeCorsDiagnostic };
+export const jellyfinInternals = { mapTrack, mapAlbum, mapArtist, mapPlaylist, mapLyrics, encodeQuery, maybeCorsDiagnostic };

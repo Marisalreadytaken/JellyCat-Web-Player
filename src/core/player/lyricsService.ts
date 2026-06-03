@@ -1,6 +1,8 @@
 import { create } from "zustand";
 import type { LyricLine, LyricsState, Track } from "@domain/types";
 import { ticksToSeconds } from "@domain/types";
+import { useAppStore } from "@app/appStore";
+import { jellyfinClient } from "@core/jellyfin";
 
 interface LyricsStore extends LyricsState {
   fetchLyrics: (track: Track) => Promise<void>;
@@ -27,28 +29,49 @@ function parseSyncedLyrics(lrc: string): LyricLine[] {
   }).sort((a, b) => a.timestamp - b.timestamp);
 }
 
+async function fetchLrclibLyrics(track: Track): Promise<Pick<LyricsState, "lines" | "plainLyrics" | "hasLyrics">> {
+  const params = new URLSearchParams({
+    artist_name: track.artistName,
+    album_name: track.albumName,
+    track_name: track.title,
+    duration: String(Math.round(ticksToSeconds(track.durationTicks)))
+  });
+  const response = await fetch(`https://lrclib.net/api/get?${params.toString()}`);
+  if (!response.ok) return { lines: [], plainLyrics: "", hasLyrics: false };
+
+  const data = (await response.json()) as { syncedLyrics?: string; plainLyrics?: string };
+  const lines = data.syncedLyrics ? parseSyncedLyrics(data.syncedLyrics) : [];
+  const plainLyrics = lines.length ? "" : data.plainLyrics ?? "";
+  return {
+    lines,
+    plainLyrics,
+    hasLyrics: lines.length > 0 || Boolean(plainLyrics)
+  };
+}
+
 export const useLyricsStore = create<LyricsStore>((set, get) => ({
   ...initialState,
   fetchLyrics: async (track) => {
     set({ ...initialState, isLoading: true });
-    const params = new URLSearchParams({
-      artist_name: track.artistName,
-      album_name: track.albumName,
-      track_name: track.title,
-      duration: String(Math.round(ticksToSeconds(track.durationTicks)))
-    });
     try {
-      const response = await fetch(`https://lrclib.net/api/get?${params.toString()}`);
-      if (!response.ok) {
-        set({ ...initialState, isLoading: false });
-        return;
+      if (useAppStore.getState().localJellyfinLyrics) {
+        const localLyrics = await jellyfinClient.getLyrics(track.id).catch(() => null);
+        if (localLyrics && (localLyrics.lines.length || localLyrics.plainLyrics)) {
+          set({
+            ...localLyrics,
+            hasLyrics: true,
+            isLoading: false,
+            currentLineIndex: 0
+          });
+          return;
+        }
       }
-      const data = (await response.json()) as { syncedLyrics?: string; plainLyrics?: string };
-      const lines = data.syncedLyrics ? parseSyncedLyrics(data.syncedLyrics) : [];
+
+      const lyrics = await fetchLrclibLyrics(track);
       set({
-        lines,
-        plainLyrics: lines.length ? "" : data.plainLyrics ?? "",
-        hasLyrics: lines.length > 0 || Boolean(data.plainLyrics),
+        lines: lyrics.lines,
+        plainLyrics: lyrics.plainLyrics,
+        hasLyrics: lyrics.hasLyrics,
         isLoading: false,
         currentLineIndex: 0
       });
@@ -68,4 +91,4 @@ export const useLyricsStore = create<LyricsStore>((set, get) => ({
   }
 }));
 
-export const lyricsInternals = { parseSyncedLyrics };
+export const lyricsInternals = { fetchLrclibLyrics, parseSyncedLyrics };

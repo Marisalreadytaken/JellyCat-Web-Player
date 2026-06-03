@@ -13,6 +13,7 @@ const session: AuthSession = {
 describe("useAppStore auth persistence", () => {
   afterEach(() => {
     useAppStore.getState().setSession(null);
+    useAppStore.getState().setLocalJellyfinLyrics(true);
     localStorage.clear();
     sessionStorage.clear();
   });
@@ -36,5 +37,12 @@ describe("useAppStore auth persistence", () => {
     expect(useAppStore.getState().isAuthenticated).toBe(false);
     expect(localStorage.getItem(storageKeys.session)).toBeNull();
     expect(sessionStorage.getItem(`${storageKeys.session}:session`)).toBeNull();
+  });
+
+  it("persists the local Jellyfin lyrics preference", () => {
+    useAppStore.getState().setLocalJellyfinLyrics(false);
+
+    expect(useAppStore.getState().localJellyfinLyrics).toBe(false);
+    expect(localStorage.getItem(storageKeys.localJellyfinLyrics)).toBe("false");
   });
 });

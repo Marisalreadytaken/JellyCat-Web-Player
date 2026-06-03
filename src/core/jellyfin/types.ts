@@ -30,3 +30,10 @@ export type ServerCheckResult = {
   ok: boolean;
   diagnostic?: string;
 };
+
+export type JellyfinLyricsResponse = {
+  Lyrics?: Array<{
+    Text?: string;
+    Start?: number | null;
+  }>;
+};

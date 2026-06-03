@@ -51,6 +51,32 @@ describe("jellyfin mappings", () => {
     expect(track.artworkItemId).toBeUndefined();
     expect(track.artworkTag).toBe("album-tag");
   });
+
+  it("maps synced Jellyfin lyric ticks to seconds", () => {
+    const lyrics = jellyfinInternals.mapLyrics({
+      Lyrics: [
+        { Text: "chorus", Start: 20_000_000 },
+        { Text: "intro", Start: 5_000_000 }
+      ]
+    });
+
+    expect(lyrics?.plainLyrics).toBe("");
+    expect(lyrics?.lines).toEqual([
+      { id: "jellyfin-1-5000000", timestamp: 0.5, text: "intro" },
+      { id: "jellyfin-0-20000000", timestamp: 2, text: "chorus" }
+    ]);
+  });
+
+  it("maps untimed Jellyfin lyrics to plain lyrics", () => {
+    const lyrics = jellyfinInternals.mapLyrics({
+      Lyrics: [
+        { Text: "first line", Start: null },
+        { Text: "second line", Start: null }
+      ]
+    });
+
+    expect(lyrics).toEqual({ lines: [], plainLyrics: "first line\nsecond line" });
+  });
 });
 
 describe("friendlyErrorMessage", () => {

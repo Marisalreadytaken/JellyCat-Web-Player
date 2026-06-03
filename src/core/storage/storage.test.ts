@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 import type { AuthSession } from "@domain/types";
-import { authSessionStorage, storageKeys } from "./storage";
+import { authSessionStorage, preferenceStorage, storageKeys } from "./storage";
 
 const session: AuthSession = {
   serverUrl: "https://jellyfin.example",
@@ -39,5 +39,20 @@ describe("authSessionStorage", () => {
     expect(localStorage.getItem(storageKeys.session)).toBeNull();
     expect(sessionStorage.getItem(`${storageKeys.session}:session`)).toBeNull();
     expect(authSessionStorage.load()).toBeNull();
+  });
+});
+
+describe("preferenceStorage", () => {
+  afterEach(() => {
+    localStorage.clear();
+  });
+
+  it("enables local Jellyfin lyrics by default and persists changes", () => {
+    expect(preferenceStorage.loadLocalJellyfinLyrics()).toBe(true);
+
+    preferenceStorage.saveLocalJellyfinLyrics(false);
+
+    expect(localStorage.getItem(storageKeys.localJellyfinLyrics)).toBe("false");
+    expect(preferenceStorage.loadLocalJellyfinLyrics()).toBe(false);
   });
 });

@@ -8,11 +8,13 @@ interface AppStore {
   authPersistence: AuthPersistence | null;
   theme: AppTheme;
   immersivePlayerBackground: boolean;
+  localJellyfinLyrics: boolean;
   connection: ConnectionStatus;
   isAuthenticated: boolean;
   setSession: (session: AuthSession | null, persistence?: AuthPersistence) => void;
   setTheme: (theme: AppTheme) => void;
   setImmersivePlayerBackground: (enabled: boolean) => void;
+  setLocalJellyfinLyrics: (enabled: boolean) => void;
   checkConnection: () => Promise<void>;
 }
 
@@ -27,6 +29,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
   isAuthenticated: Boolean(initialStoredSession?.session.accessToken),
   theme: preferenceStorage.loadTheme(),
   immersivePlayerBackground: preferenceStorage.loadImmersive(),
+  localJellyfinLyrics: preferenceStorage.loadLocalJellyfinLyrics(),
   connection: {
     isServerAvailable: true,
     isNetworkConnected: navigator.onLine,
@@ -49,6 +52,10 @@ export const useAppStore = create<AppStore>((set, get) => ({
   setImmersivePlayerBackground: (enabled) => {
     preferenceStorage.saveImmersive(enabled);
     set({ immersivePlayerBackground: enabled });
+  },
+  setLocalJellyfinLyrics: (enabled) => {
+    preferenceStorage.saveLocalJellyfinLyrics(enabled);
+    set({ localJellyfinLyrics: enabled });
   },
   checkConnection: async () => {
     const session = get().session;

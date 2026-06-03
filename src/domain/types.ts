@@ -84,6 +84,11 @@ export interface LyricsState {
   hasLyrics: boolean;
 }
 
+export interface LyricsPayload {
+  lines: LyricLine[];
+  plainLyrics: string;
+}
+
 export interface ConnectionStatus {
   isServerAvailable: boolean;
   isNetworkConnected: boolean;

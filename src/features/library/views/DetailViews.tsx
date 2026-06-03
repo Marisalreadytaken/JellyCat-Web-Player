@@ -6,7 +6,7 @@ import { jellyfinClient } from "@core/jellyfin";
 import { usePlayerStore } from "@core/player/audioService";
 import { useRecentActivityStore } from "@core/player/recentActivity";
 import { AlbumCard, Badge, EmptyState, IconButton, JButton, LoadingState, Section, TrackRow, icons } from "@shared/ui";
-import { playlistSortKey, loadPlaylistSort, type PlaylistSort } from "../constants";
+import { playlistLimitModeKey, playlistSortKey, loadPlaylistSort, SONGS_PAGE_SIZE, type PlaylistSort } from "../constants";
 import { AddSongsModal } from "../components/AddSongsModal";
 import { PlaylistArtwork } from "../components/PlaylistArtwork";
 
@@ -123,20 +123,49 @@ export function PlaylistDetailView() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [sort, setSort] = useState<PlaylistSort>(() => loadPlaylistSort());
+  const [isLimited, setIsLimited] = useState(() => {
+    if (typeof window === "undefined") return true;
+    return localStorage.getItem(playlistLimitModeKey) !== "limitless";
+  });
+  const [page, setPage] = useState(0);
   const [showAdd, setShowAdd] = useState(false);
   const playlists = useQuery({ queryKey: ["playlists"], queryFn: () => jellyfinClient.getPlaylists() });
-  const tracksQuery = useQuery({ queryKey: ["playlist", playlistId, "tracks"], queryFn: () => jellyfinClient.getPlaylistTracks(playlistId) });
+  const tracksQuery = useQuery({
+    queryKey: ["playlist", playlistId, "tracks", isLimited, page],
+    queryFn: () => jellyfinClient.getPlaylistTracksPage(playlistId, {
+      startIndex: isLimited ? page * SONGS_PAGE_SIZE : undefined,
+      limit: isLimited ? SONGS_PAGE_SIZE : undefined
+    }),
+    placeholderData: (previousData) => previousData
+  });
   const playlist = playlists.data?.find((item) => item.id === playlistId);
   const recent = useRecentActivityStore();
+  const totalTracks = tracksQuery.data?.total ?? tracksQuery.data?.tracks.length ?? 0;
+  const pageCount = Math.max(1, Math.ceil(totalTracks / SONGS_PAGE_SIZE));
+  const safePage = Math.min(page, pageCount - 1);
+  const displayedStart = totalTracks ? safePage * SONGS_PAGE_SIZE + 1 : 0;
+  const displayedEnd = isLimited ? Math.min((safePage + 1) * SONGS_PAGE_SIZE, totalTracks) : totalTracks;
 
   const tracks = useMemo(() => {
-    const source = tracksQuery.data ?? [];
+    const source = tracksQuery.data?.tracks ?? [];
     if (sort === "name") return [...source].sort((a, b) => a.title.localeCompare(b.title));
     if (sort === "recent") return [...source].sort((a, b) => Date.parse(b.dateCreated ?? "") - Date.parse(a.dateCreated ?? ""));
     return source;
-  }, [sort, tracksQuery.data]);
+  }, [sort, tracksQuery.data?.tracks]);
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ["playlist", playlistId, "tracks"] });
+
+  useEffect(() => {
+    setPage(0);
+  }, [isLimited, playlistId, sort]);
+
+  useEffect(() => {
+    if (page !== safePage) setPage(safePage);
+  }, [page, safePage]);
+
+  useEffect(() => {
+    localStorage.setItem(playlistLimitModeKey, isLimited ? "limit" : "limitless");
+  }, [isLimited]);
 
   useEffect(() => {
     localStorage.setItem(playlistSortKey, sort);
@@ -175,7 +204,7 @@ export function PlaylistDetailView() {
           <div className="playlist-detail-copy">
             <p>PLAYLIST</p>
             <h2>{playlist?.name ?? "PLAYLIST"}</h2>
-            <span>{tracks.length} TRACKS</span>
+            <span>{totalTracks} TRACKS</span>
           </div>
           <div className="playlist-detail-actions">
             <JButton icon={icons.play} accent disabled={!tracks.length} onClick={() => { if (tracks.length) { usePlayerStore.getState().play(tracks, 0); if (playlist) recent.trackPlaylist(playlist); } }}>PLAY ALL</JButton>
@@ -195,7 +224,23 @@ export function PlaylistDetailView() {
           </div>
         </aside>
         <section className="playlist-tracks-panel">
-          <Section title={`TRACKLIST :: ${tracks.length} TRACKS`} />
+          <div className="j-section">
+            <span>TRACKLIST :: {isLimited ? `${displayedStart}-${displayedEnd} / ` : ""}{totalTracks} TRACKS</span>
+            <div className="section-actions">
+              <button className={isLimited ? "" : "active"} type="button" onClick={() => setIsLimited((value) => !value)}>
+                {isLimited ? "LIMIT 200" : "LIMITLESS"}
+              </button>
+            </div>
+          </div>
+          {isLimited ? (
+            <div className="action-row">
+              <div className="page-controls">
+                <JButton disabled={safePage === 0} onClick={() => setPage((value) => Math.max(0, value - 1))}>PREV</JButton>
+                <span>PAGE {safePage + 1} / {pageCount}</span>
+                <JButton disabled={safePage >= pageCount - 1} onClick={() => setPage((value) => Math.min(pageCount - 1, value + 1))}>NEXT</JButton>
+              </div>
+            </div>
+          ) : null}
           <div className="playlist-track-list">
             {tracksQuery.isLoading ? <LoadingState label="LOADING TRACKS" /> : tracks.map((track, index) => (
               <TrackRow
