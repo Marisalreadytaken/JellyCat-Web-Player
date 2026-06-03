@@ -1,7 +1,7 @@
 ![CI](https://github.com/Mariano14782/JellyCat-Web-Player/actions/workflows/ci.yml/badge.svg?style=flat-square)
 ![Docker Pulls](https://img.shields.io/docker/pulls/maralreadytaken/jellycat?color=e040a0&style=flat-square)
 ![Version](https://img.shields.io/docker/v/maralreadytaken/jellycat/latest?color=40d0a0&style=flat-square)
-![License: GPL v3](https://img.shields.io/badge/License-GPLv3-e040a0?style=flat-square)
+![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-e040a0?style=flat-square)
 # JellyCat Web Music Player
 
 JellyCat is a static browser client for Jellyfin music libraries. The app has no backend: your browser connects directly to your Jellyfin server.
