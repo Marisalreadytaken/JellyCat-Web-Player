@@ -113,7 +113,7 @@ export function ChangelogPage() {
     <TrustShell title="CHANGELOG">
       <Section title="0.3.0" />
       <p>Implemented docker image, github actions to build and push to docker hub, implemented button to limit playlist items shown and implementation for local lyrics from Jellyfin.</p>
-      <Section title="0.2.0" />
+      <Section title="1.0.0" />
       <p>Ui polishing, optimized queries, jellyfin compatibility improvements, changes and polish of some layouts.</p>
       <Section title="0.1.0" />
       <p>Initial static web SPA readiness pass for Jellyfin music browsing, playback, lyrics, playlist tools, trust pages, explicit persistent login, and future Vercel hosting configuration.</p>

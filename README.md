@@ -24,8 +24,8 @@ docker compose up -d
 Docker image tags correspond to `package.json` versions.
 
 - `maralreadytaken/jellycat:latest` tracks the latest published `main` build.
-- `maralreadytaken/jellycat:0.2.0` corresponds to `package.json` version `0.2.0`.
-- Git tags like `v0.2.0` publish the Docker tag `0.2.0`.
+- `maralreadytaken/jellycat:1.0.0` corresponds to `package.json` version `1.0.0`.
+- Git tags like `v1.0.0` publish the Docker tag `1.0.0`.
 
 ## Local Development
 

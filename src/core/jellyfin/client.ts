@@ -7,7 +7,7 @@ import { mapAlbum, mapArtist, mapLyrics, mapPlaylist, mapTrack } from "./mappers
 import { encodeQuery } from "./query";
 import type { ItemsResponse, JellyfinLyricsResponse, ServerCheckResult, TracksPage } from "./types";
 
-const clientInfo = { name: "JellyCat Web", version: "0.2.0" };
+const clientInfo = { name: "JellyCat Web", version: "1.0.0" };
 const deviceIdKey = "jellycat:web:deviceId";
 
 function getDeviceId(): string {
