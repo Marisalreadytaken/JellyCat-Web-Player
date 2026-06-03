@@ -6,7 +6,7 @@ JellyCat SPA is a static browser client for Jellyfin music libraries. The app ha
 
 ```bash
 docker pull maralreadytaken/jellycat:latest
-docker run -p 3003:80 maralreadytaken/jellycat:latest
+docker run -d -p 3003:80 maralreadytaken/jellycat:latest
 ```
 
 Then open `http://localhost:3003`.
