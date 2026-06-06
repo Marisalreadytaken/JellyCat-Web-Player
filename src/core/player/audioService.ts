@@ -246,7 +246,6 @@ class BrowserAudioService {
     const src = await this.resolveSource(track);
     this.audio.src = src;
     this.audio.load();
-    await useLyricsStore.getState().fetchLyrics(track);
     await this.audio.play().catch(() => undefined);
     usePlayerStore.setState({
       isPlaying: !this.audio.paused,
@@ -255,6 +254,7 @@ class BrowserAudioService {
     this.preloadNext();
     this.updateMediaSession();
     void jellyfinClient.reportPlaybackStarted(track.id);
+    void useLyricsStore.getState().fetchLyrics(track);
   }
 
   private async resolveSource(track: Track): Promise<string> {

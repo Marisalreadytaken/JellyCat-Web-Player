@@ -17,6 +17,8 @@ const initialState: LyricsState = {
   hasLyrics: false
 };
 
+let lyricsRequestSequence = 0;
+
 function parseSyncedLyrics(lrc: string): LyricLine[] {
   return lrc.split(/\r?\n/).flatMap((line, index) => {
     const match = line.trim().match(/^\[(\d+):(\d+(?:\.\d+)?)\]\s*(.*)$/);
@@ -52,12 +54,17 @@ async function fetchLrclibLyrics(track: Track): Promise<Pick<LyricsState, "lines
 export const useLyricsStore = create<LyricsStore>((set, get) => ({
   ...initialState,
   fetchLyrics: async (track) => {
+    const requestId = ++lyricsRequestSequence;
+    const setIfLatest = (state: LyricsState) => {
+      if (requestId === lyricsRequestSequence) set(state);
+    };
+
     set({ ...initialState, isLoading: true });
     try {
       if (useAppStore.getState().localJellyfinLyrics) {
         const localLyrics = await jellyfinClient.getLyrics(track.id).catch(() => null);
         if (localLyrics && (localLyrics.lines.length || localLyrics.plainLyrics)) {
-          set({
+          setIfLatest({
             ...localLyrics,
             hasLyrics: true,
             isLoading: false,
@@ -68,7 +75,7 @@ export const useLyricsStore = create<LyricsStore>((set, get) => ({
       }
 
       const lyrics = await fetchLrclibLyrics(track);
-      set({
+      setIfLatest({
         lines: lyrics.lines,
         plainLyrics: lyrics.plainLyrics,
         hasLyrics: lyrics.hasLyrics,
@@ -76,7 +83,7 @@ export const useLyricsStore = create<LyricsStore>((set, get) => ({
         currentLineIndex: 0
       });
     } catch {
-      set({ ...initialState, isLoading: false });
+      setIfLatest({ ...initialState, isLoading: false });
     }
   },
   updateCurrentLine: (time) => {
