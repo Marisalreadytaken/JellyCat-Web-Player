@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { jellyfinClient } from "@core/jellyfin";
-import { JButton, LoadingState } from "@shared/ui";
+import { JButton, LoadingState, icons } from "@shared/ui";
 
 export function AddSongsModal({ playlistId, onClose, onDone }: { playlistId: string; onClose: () => void; onDone: () => void }) {
   const [query, setQuery] = useState("");
@@ -23,10 +23,10 @@ export function AddSongsModal({ playlistId, onClose, onDone }: { playlistId: str
     <div className="modal-backdrop">
       <div className="modal">
         <div className="topbar">
-          <JButton onClick={onClose}>CANCEL</JButton>
+          <JButton icon={icons.close} onClick={onClose}>CANCEL</JButton>
           <h1>ADD SONGS</h1>
           <span className="spacer" />
-          <JButton accent disabled={!selected.size} onClick={() => void add()}>ADD ({selected.size})</JButton>
+          <JButton accent icon={icons.plus} disabled={!selected.size} onClick={() => void add()}>ADD ({selected.size})</JButton>
         </div>
         <div style={{ padding: 14 }}><input className="search-input" placeholder="SEARCH SONGS..." value={query} onChange={(event) => setQuery(event.target.value)} /></div>
         {tracks.isLoading ? <LoadingState label="LOADING LIBRARY" /> : displayed.map((track) => (

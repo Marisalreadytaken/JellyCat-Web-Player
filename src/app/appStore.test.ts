@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { AuthSession } from "@domain/types";
 import { storageKeys } from "@core/storage/storage";
 import { useAppStore } from "./appStore";
@@ -14,6 +14,8 @@ describe("useAppStore auth persistence", () => {
   afterEach(() => {
     useAppStore.getState().setSession(null);
     useAppStore.getState().setLocalJellyfinLyrics(true);
+    useAppStore.setState({ latestVersion: undefined, isUpdateAvailable: false });
+    vi.unstubAllGlobals();
     localStorage.clear();
     sessionStorage.clear();
   });
@@ -44,5 +46,26 @@ describe("useAppStore auth persistence", () => {
 
     expect(useAppStore.getState().localJellyfinLyrics).toBe(false);
     expect(localStorage.getItem(storageKeys.localJellyfinLyrics)).toBe("false");
+  });
+
+  it("marks the app when a newer release is available", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ tag_name: "v1.2.0" }), { status: 200 })));
+
+    await useAppStore.getState().checkForUpdate();
+
+    expect(useAppStore.getState().latestVersion).toBe("1.2.0");
+    expect(useAppStore.getState().isUpdateAvailable).toBe(true);
+  });
+
+  it("keeps the app usable when the release check fails", async () => {
+    useAppStore.setState({ latestVersion: "1.2.0", isUpdateAvailable: true });
+    vi.stubGlobal("fetch", vi.fn(async () => {
+      throw new Error("network down");
+    }));
+
+    await useAppStore.getState().checkForUpdate();
+
+    expect(useAppStore.getState().latestVersion).toBeUndefined();
+    expect(useAppStore.getState().isUpdateAvailable).toBe(false);
   });
 });

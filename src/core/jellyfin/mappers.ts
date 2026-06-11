@@ -44,6 +44,7 @@ export function mapTrack(node: JellyfinItemNode, fallbackAlbumId?: string): Trac
     id: node.Id,
     title: node.Name,
     albumId: node.AlbumId ?? fallbackAlbumId ?? node.Id,
+    artistId: node.ArtistItems?.[0]?.Id,
     artistName: node.Artists?.[0] ?? "Unknown Artist",
     albumName: node.Album ?? "Unknown Album",
     durationTicks: node.RunTimeTicks ?? 0,

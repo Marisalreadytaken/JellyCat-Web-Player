@@ -1,7 +1,7 @@
 import type React from "react";
 import { Link } from "react-router-dom";
 import { useAppStore } from "@app/appStore";
-import { CheckerStrip, Divider, Section } from "@shared/ui";
+import { CheckerStrip, Divider, JLinkButton, Section, icons } from "@shared/ui";
 
 function TrustShell({ title, children }: { title: string; children: React.ReactNode }) {
   const isAuthenticated = useAppStore((state) => state.isAuthenticated);
@@ -40,7 +40,7 @@ export function AboutPage() {
       <Section title="DONATIONS" />
       <p>JellyCat is free. Donations are optional and support development.</p>
       <p>Donations do not grant features, access, priority, support guarantees, or any other benefit.</p>
-      <a className="j-button accent trust-action" href="https://ko-fi.com/mar_" target="_blank" rel="noopener noreferrer">KO-FI</a>
+      <JLinkButton href="https://ko-fi.com/mar_" target="_blank" rel="noopener noreferrer" accent icon={icons.externalLink} className="trust-action">KO-FI</JLinkButton>
     </TrustShell>
   );
 }
@@ -98,11 +98,7 @@ export function CurrentlyOnPage() {
       <p>Polish the public web client, verify production hosting behavior, and keep browser playback, queue, search, and library flows working smoothly.</p>
       <Section title="WEB HOSTING" />
       <p>Polish and test the docker image to run JellyCat locally best way possible.</p>
-      <Section title="JELLYFIN COMPATIBILITY" />
-      <p>Improve guidance for CORS, mixed-content, and server configuration issues that can affect browser-based Jellyfin clients. If you´re having trouble connecting to Jellyfin, make sure you´re using an exposed HTTPS URL and not a local one.</p>
-      <Section title="QUALITY" />
-      <p>Currently focused on maintaining and polishing the web client, improving the Jellyfin compatibility guidance, and ensuring a smooth user experience.</p>
-      <Section title="MOBILE" />
+      <Section title="PORTS" />
       <p>As the native ios app seems to be ready, I´m focusing on the next port that uses the same arquitecture, macOS. As Apple only allows to publish with a paid developer account, I´ll leave them ready and continue with the android and windows ports.</p>
     </TrustShell>
   );
@@ -111,14 +107,21 @@ export function CurrentlyOnPage() {
 export function ChangelogPage() {
   return (
     <TrustShell title="CHANGELOG">
+      <Section title="1.1.0" />
+      <p>- Added a playback status indicator in the player UI.</p>
+      <p>- Fixed a bug where progress bar on the mini player didn´t change the song timestamp.</p>
+      <p>- Changed the icon for active favorite tracks.</p>
+      <p>- Changed icons in the UI.</p>
+      <p>- Added links in the full player to artist/album pages.</p>
+      <p>- Added a small UI element to indicate when a new version is available.</p>
       <Section title="1.0.1" />
-      <p>Finished docker workflow and fixed crypto.randomUUID fallback for Safari.</p>
+      <p>- Finished docker workflow and fixed crypto.randomUUID fallback for Safari.</p>
       <Section title="0.3.0" />
-      <p>Implemented docker image, github actions to build and push to docker hub, implemented button to limit playlist items shown and implementation for local lyrics from Jellyfin.</p>
+      <p>- Implemented docker image, github actions to build and push to docker hub, implemented button to limit playlist items shown and implementation for local lyrics from Jellyfin.</p>
       <Section title="0.2.0" />
-      <p>Ui polishing, optimized queries, jellyfin compatibility improvements, changes and polish of some layouts.</p>
+      <p>- Ui polishing, optimized queries, jellyfin compatibility improvements, changes and polish of some layouts.</p>
       <Section title="0.1.0" />
-      <p>Initial static web SPA readiness pass for Jellyfin music browsing, playback, lyrics, playlist tools, trust pages, explicit persistent login, and future Vercel hosting configuration.</p>
+      <p>- Initial static web SPA readiness pass for Jellyfin music browsing, playback, lyrics, playlist tools, trust pages, explicit persistent login, and future Vercel hosting configuration.</p>
     </TrustShell>
   );
 }

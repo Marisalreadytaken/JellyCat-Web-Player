@@ -8,6 +8,7 @@ export type JellyfinItemNode = {
   AlbumId?: string;
   AlbumPrimaryImageTag?: string;
   Artists?: string[];
+  ArtistItems?: Array<{ Id: string; Name: string }>;
   Album?: string;
   RunTimeTicks?: number;
   ImageTags?: Record<string, string>;

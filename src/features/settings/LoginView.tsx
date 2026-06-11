@@ -1,6 +1,6 @@
 import { FormEvent, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { JButton, CheckerStrip, KofiButton } from "@shared/ui";
+import { JButton, CheckerStrip, KofiButton, icons } from "@shared/ui";
 import { friendlyErrorMessage, jellyfinClient } from "@core/jellyfin";
 import { useAppStore } from "@app/appStore";
 
@@ -48,7 +48,7 @@ export function LoginView() {
             </span>
           </label>
           {error ? <div className="error-box">{error}</div> : null}
-          <JButton type="submit" accent disabled={isLoading}>{isLoading ? "CONNECTING" : "CONNECT"}</JButton>
+          <JButton type="submit" accent icon={icons.play} disabled={isLoading}>{isLoading ? "CONNECTING" : "CONNECT"}</JButton>
         </div>
         <nav className="trust-links" aria-label="Public pages">
           <Link to="/about">ABOUT</Link>

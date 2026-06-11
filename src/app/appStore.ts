@@ -2,10 +2,14 @@ import { create } from "zustand";
 import type { AppTheme, AuthSession, ConnectionStatus } from "@domain/types";
 import { authSessionStorage, preferenceStorage, type AuthPersistence } from "@core/storage/storage";
 import { jellyfinClient } from "@core/jellyfin";
+import { appVersion, fetchLatestVersion, isNewerVersion } from "@core/version";
 
 interface AppStore {
   session: AuthSession | null;
   authPersistence: AuthPersistence | null;
+  appVersion: string;
+  latestVersion?: string;
+  isUpdateAvailable: boolean;
   theme: AppTheme;
   immersivePlayerBackground: boolean;
   localJellyfinLyrics: boolean;
@@ -16,6 +20,7 @@ interface AppStore {
   setImmersivePlayerBackground: (enabled: boolean) => void;
   setLocalJellyfinLyrics: (enabled: boolean) => void;
   checkConnection: () => Promise<void>;
+  checkForUpdate: () => Promise<void>;
 }
 
 const initialStoredSession = authSessionStorage.load();
@@ -27,6 +32,9 @@ export const useAppStore = create<AppStore>((set, get) => ({
   session: initialStoredSession?.session ?? null,
   authPersistence: initialStoredSession?.persistence ?? null,
   isAuthenticated: Boolean(initialStoredSession?.session.accessToken),
+  appVersion,
+  latestVersion: undefined,
+  isUpdateAvailable: false,
   theme: preferenceStorage.loadTheme(),
   immersivePlayerBackground: preferenceStorage.loadImmersive(),
   localJellyfinLyrics: preferenceStorage.loadLocalJellyfinLyrics(),
@@ -72,6 +80,17 @@ export const useAppStore = create<AppStore>((set, get) => ({
         diagnostic: result.diagnostic
       }
     });
+  },
+  checkForUpdate: async () => {
+    try {
+      const latestVersion = await fetchLatestVersion();
+      set({
+        latestVersion,
+        isUpdateAvailable: isNewerVersion(latestVersion, appVersion)
+      });
+    } catch {
+      set({ latestVersion: undefined, isUpdateAvailable: false });
+    }
   }
 }));
 

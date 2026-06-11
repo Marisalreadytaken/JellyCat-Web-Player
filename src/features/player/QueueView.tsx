@@ -28,7 +28,7 @@ export function QueueView() {
         <IconButton label="Back" icon={icons.back} onClick={exitQueue} />
         <h1>QUEUE</h1>
         <span className="spacer" />
-        <JButton accent onClick={player.clearQueue}>CLEAR</JButton>
+        <JButton accent icon={icons.trash} onClick={player.clearQueue}>CLEAR</JButton>
       </div>
       <Section title="QUEUE :: CURRENT" action={`// ${currentIndex + 1 || 0} / ${player.queue.length} TRACKS`} />
       {player.queue.length ? player.queue.map((track, index) => (
@@ -38,8 +38,8 @@ export function QueueView() {
           className={`queue-item ${index === currentIndex ? "current" : ""}`}
         >
           <TrackRow track={track} index={index} contextTracks={player.queue} />
-          <button className="mini-button" disabled={index === 0} onClick={() => player.moveQueueItem(index, Math.max(0, index - 1))}>UP</button>
-          <button className="mini-button" onClick={() => player.removeFromQueue(index)}>DEL</button>
+          <IconButton label="Move up" icon={icons.arrowUp} disabled={index === 0} onClick={() => player.moveQueueItem(index, Math.max(0, index - 1))} />
+          <IconButton label="Remove from queue" icon={icons.trash} onClick={() => player.removeFromQueue(index)} />
         </div>
       )) : <div className="empty-state">// QUEUE EMPTY</div>}
     </main>

@@ -46,11 +46,20 @@ export function TrackRow({
   onRemoveFromPlaylist?: (track: Track) => void | Promise<void>;
 }) {
   const player = usePlayerStore();
-  const isPlaying = player.currentTrack?.id === track.id;
+  const isCurrent = player.currentTrack?.id === track.id;
+  const rowStateClass = isCurrent
+    ? player.playbackStatus === "playing"
+      ? "playing"
+      : player.playbackStatus === "loading" || player.playbackStatus === "buffering"
+        ? "current buffering"
+        : player.playbackStatus === "error"
+          ? "current error"
+          : "current"
+    : "";
   const artworkId = track.artworkItemId ?? track.albumId;
 
   return (
-    <div className={`row ${isPlaying ? "playing" : ""}`}>
+    <div className={`row ${rowStateClass}`}>
       <button className="artwork" style={{ width: 38, height: 38, padding: 0 }} onClick={() => player.play(contextTracks, index)} aria-label={`Play ${track.title}`}>
         <Artwork className="artwork" itemId={artworkId} tag={track.artworkTag} maxHeight={96} />
       </button>

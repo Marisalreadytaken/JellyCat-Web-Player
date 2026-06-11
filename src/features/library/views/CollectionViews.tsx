@@ -81,23 +81,23 @@ export function PlaylistsView() {
         <IconButton label="Back" icon={icons.back} onClick={() => history.back()} />
         <h1>PLAYLISTS</h1>
         <span className="spacer" />
-        <IconButton label="New playlist" icon={icons.playlist} onClick={() => void createPlaylist()} />
+        <IconButton label="New playlist" icon={icons.plus} onClick={() => void createPlaylist()} />
       </div>
       <div className="j-section">
         <span>LIBRARY</span>
         <div className="section-actions">
           <span className="section-pill">// {isLimited ? `${displayedStart}-${displayedEnd} / ` : ""}{totalPlaylists} RECORDS</span>
-          <button className={isLimited ? "" : "active"} type="button" onClick={() => setIsLimited((value) => !value)}>
+          <JButton icon={icons.filter} accent={!isLimited} onClick={() => setIsLimited((value) => !value)}>
             {isLimited ? "LIMIT 200" : "LIMITLESS"}
-          </button>
+          </JButton>
         </div>
       </div>
       {isLimited ? (
         <div className="action-row">
           <div className="page-controls">
-            <JButton disabled={safePage === 0} onClick={() => setPage((value) => Math.max(0, value - 1))}>PREV</JButton>
+            <JButton icon={icons.arrowLeft} disabled={safePage === 0} onClick={() => setPage((value) => Math.max(0, value - 1))}>PREV</JButton>
             <span>PAGE {safePage + 1} / {pageCount}</span>
-            <JButton disabled={safePage >= pageCount - 1} onClick={() => setPage((value) => Math.min(pageCount - 1, value + 1))}>NEXT</JButton>
+            <JButton icon={icons.arrowRight} disabled={safePage >= pageCount - 1} onClick={() => setPage((value) => Math.min(pageCount - 1, value + 1))}>NEXT</JButton>
           </div>
         </div>
       ) : null}

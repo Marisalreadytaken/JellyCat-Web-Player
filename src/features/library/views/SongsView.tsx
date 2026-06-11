@@ -75,9 +75,9 @@ export function SongsView() {
         <span>{favoritesOnly ? "FAVORITES" : "LIBRARY"}</span>
         <div className="section-actions">
           <span className="section-pill">// {isLimited ? `${displayedStart}-${displayedEnd} / ` : ""}{totalTracks} TRACKS</span>
-          <button className={isLimited ? "" : "active"} type="button" onClick={() => setIsLimited((value) => !value)}>
+          <JButton icon={icons.filter} accent={!isLimited} onClick={() => setIsLimited((value) => !value)}>
             {isLimited ? "LIMIT 200" : "LIMITLESS"}
-          </button>
+          </JButton>
         </div>
       </div>
       <div className="action-row">
@@ -89,9 +89,9 @@ export function SongsView() {
         </select>
         {isLimited ? (
           <div className="page-controls">
-            <JButton disabled={safePage === 0} onClick={() => setPage((value) => Math.max(0, value - 1))}>PREV</JButton>
+            <JButton icon={icons.arrowLeft} disabled={safePage === 0} onClick={() => setPage((value) => Math.max(0, value - 1))}>PREV</JButton>
             <span>PAGE {safePage + 1} / {pageCount}</span>
-            <JButton disabled={safePage >= pageCount - 1} onClick={() => setPage((value) => Math.min(pageCount - 1, value + 1))}>NEXT</JButton>
+            <JButton icon={icons.arrowRight} disabled={safePage >= pageCount - 1} onClick={() => setPage((value) => Math.min(pageCount - 1, value + 1))}>NEXT</JButton>
           </div>
         ) : null}
       </div>
