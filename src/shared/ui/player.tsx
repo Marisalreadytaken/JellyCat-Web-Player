@@ -69,7 +69,14 @@ export function MiniPlayer() {
             <Artwork className="mini-player-artwork" itemId={track.artworkItemId ?? track.albumId} tag={track.artworkTag} maxHeight={160} />
           </Link>
           <div className="mini-player-main">
-            <div className="mini-player-progress"><ProgressBlocks progress={progress} blocks={60} /></div>
+            <div className="mini-player-progress">
+              <ProgressBlocks
+                progress={progress}
+                blocks={60}
+                interactive
+                onSeek={(pct) => player.seek(pct * player.durationSeconds)}
+              />
+            </div>
             <Link to="/now-playing" className="mini-player-meta">
               <div className="mini-player-title">{track.title}</div>
               <div className="mini-player-artist">{track.artistName}</div>

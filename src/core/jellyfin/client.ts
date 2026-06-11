@@ -6,8 +6,9 @@ import { arrayBufferToBase64, detectMimeType } from "./media";
 import { mapAlbum, mapArtist, mapLyrics, mapPlaylist, mapTrack } from "./mappers";
 import { encodeQuery } from "./query";
 import type { ItemsResponse, JellyfinLyricsResponse, ServerCheckResult, TracksPage } from "./types";
+import { appVersion } from "@core/version";
 
-const clientInfo = { name: "JellyCat Web", version: "1.0.1" };
+const clientInfo = { name: "JellyCat Web", version: appVersion };
 const deviceIdKey = "jellycat:web:deviceId";
 
 function createDeviceId(): string {
@@ -174,7 +175,7 @@ class JellyfinClient {
       ["recursive", "true"],
       ["sortBy", "Album,ParentIndexNumber,IndexNumber,SortName"],
       ["sortOrder", "Ascending"],
-      ["fields", "PrimaryImageAspectRatio,ParentId,AlbumId,AlbumPrimaryImageTag,Container,MediaSources,PlayCount,DateCreated"]
+      ["fields", "PrimaryImageAspectRatio,ParentId,AlbumId,AlbumPrimaryImageTag,ArtistItems,Container,MediaSources,PlayCount,DateCreated"]
     ])}`);
     return data.Items.map((item) => mapTrack(item));
   }
@@ -256,7 +257,7 @@ class JellyfinClient {
     const session = this.requireSession();
     const data = await this.request<ItemsResponse>(`/Playlists/${playlistId}/Items?${encodeQuery([
       ["userId", session.userId],
-      ["fields", "PrimaryImageAspectRatio,ParentId,AlbumId,AlbumPrimaryImageTag,PlaylistItemId,Container,MediaSources,PlayCount,DateCreated"],
+      ["fields", "PrimaryImageAspectRatio,ParentId,AlbumId,AlbumPrimaryImageTag,ArtistItems,PlaylistItemId,Container,MediaSources,PlayCount,DateCreated"],
       ["startIndex", startIndex],
       ["limit", limit]
     ])}`);
@@ -271,7 +272,7 @@ class JellyfinClient {
       ["includeItemTypes", "Audio"],
       ["sortBy", "ParentIndexNumber,IndexNumber,SortName"],
       ["sortOrder", "Ascending"],
-      ["fields", "Container,MediaSources,PlayCount"]
+      ["fields", "ArtistItems,Container,MediaSources,PlayCount"]
     ])}`);
     return data.Items.map((item) => mapTrack(item, albumId));
   }
@@ -295,7 +296,7 @@ class JellyfinClient {
       ["recursive", "true"],
       ["sortBy", sortBy],
       ["sortOrder", sortOrder],
-      ["fields", "PrimaryImageAspectRatio,ParentId,AlbumId,AlbumPrimaryImageTag,Container,MediaSources,PlayCount,DateCreated"],
+      ["fields", "PrimaryImageAspectRatio,ParentId,AlbumId,AlbumPrimaryImageTag,ArtistItems,Container,MediaSources,PlayCount,DateCreated"],
       ["filters", favoritesOnly ? "IsFavorite" : undefined],
       ["startIndex", startIndex],
       ["limit", limit]
@@ -315,7 +316,7 @@ class JellyfinClient {
       ["includeItemTypes", "MusicAlbum,MusicArtist,Audio"],
       ["recursive", "true"],
       ["limit", "50"],
-      ["fields", "PrimaryImageAspectRatio,Container,MediaSources,PlayCount"]
+      ["fields", "PrimaryImageAspectRatio,ArtistItems,Container,MediaSources,PlayCount"]
     ])}`);
     const results: SearchResults = { artists: [], albums: [], tracks: [] };
     for (const item of data.Items) {

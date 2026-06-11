@@ -1,6 +1,7 @@
 export type RepeatMode = "none" | "all" | "one";
 export type AppTheme = "original" | "mocha" | "macchiato" | "frappe" | "latte";
 export type RecentItemType = "album" | "playlist";
+export type PlaybackStatus = "idle" | "loading" | "buffering" | "playing" | "paused" | "error";
 
 export interface AuthSession {
   serverUrl: string;
@@ -40,6 +41,7 @@ export interface Track {
   id: string;
   title: string;
   albumId: string;
+  artistId?: string;
   artistName: string;
   albumName: string;
   durationTicks: number;

@@ -1,5 +1,6 @@
 import type React from "react";
 import type { LucideIcon } from "lucide-react";
+import { Link, type LinkProps } from "react-router-dom";
 
 export function CheckerStrip() {
   return <div className="checker-strip" />;
@@ -13,7 +14,7 @@ export function Section({ title, action, onAction }: { title: string; action?: s
   return (
     <div className="j-section">
       <span>{title}</span>
-      {action ? <button type="button" onClick={onAction}>{action}</button> : null}
+      {action ? <button type="button" className="j-button" onClick={onAction}>{action}</button> : null}
     </div>
   );
 }
@@ -77,6 +78,77 @@ export function IconButton({
       <Icon size={17} />
     </button>
   );
+}
+
+type CommonLinkButtonProps = {
+  children: React.ReactNode;
+  icon?: LucideIcon;
+  accent?: boolean;
+  className?: string;
+};
+
+type RouterLinkButtonProps = CommonLinkButtonProps & {
+  to: LinkProps["to"];
+  href?: never;
+  target?: never;
+  rel?: never;
+};
+
+type AnchorLinkButtonProps = CommonLinkButtonProps & {
+  href: string;
+  to?: never;
+  target?: string;
+  rel?: string;
+};
+
+export function JLinkButton(props: RouterLinkButtonProps | AnchorLinkButtonProps) {
+  const { children, icon: Icon, accent, className } = props;
+  const classes = `j-button ${accent ? "accent" : ""} ${className ?? ""}`.trim();
+  const content = (
+    <>
+      {Icon ? <Icon size={15} /> : null}
+      {children}
+    </>
+  );
+
+  if ("href" in props) {
+    return <a className={classes} href={props.href} target={props.target} rel={props.rel}>{content}</a>;
+  }
+
+  return <Link className={classes} to={props.to}>{content}</Link>;
+}
+
+type CommonIconLinkButtonProps = {
+  label: string;
+  icon: LucideIcon;
+  active?: boolean;
+  className?: string;
+};
+
+type RouterIconLinkButtonProps = CommonIconLinkButtonProps & {
+  to: LinkProps["to"];
+  href?: never;
+  target?: never;
+  rel?: never;
+};
+
+type AnchorIconLinkButtonProps = CommonIconLinkButtonProps & {
+  href: string;
+  to?: never;
+  target?: string;
+  rel?: string;
+};
+
+export function IconLinkButton(props: RouterIconLinkButtonProps | AnchorIconLinkButtonProps) {
+  const { label, icon: Icon, active, className } = props;
+  const classes = `icon-button ${active ? "active" : ""} ${className ?? ""}`.trim();
+  const content = <Icon size={17} />;
+
+  if ("href" in props) {
+    return <a className={classes} href={props.href} target={props.target} rel={props.rel} aria-label={label} title={label}>{content}</a>;
+  }
+
+  return <Link className={classes} to={props.to} aria-label={label} title={label}>{content}</Link>;
 }
 
 export function KofiButton() {

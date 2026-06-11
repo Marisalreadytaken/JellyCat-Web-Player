@@ -250,25 +250,6 @@ a {
   text-transform: uppercase;
 }
 
-.j-section button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid var(--j-border);
-  border-radius: 1px;
-  background: transparent;
-  color: var(--j-dim);
-  font-size: 11px;
-  letter-spacing: 2px;
-  padding: 3px 8px;
-  text-transform: uppercase;
-}
-
-.j-section button.active {
-  border-color: color-mix(in srgb, var(--j-pink) 50%, transparent);
-  color: var(--j-pink);
-}
-
 .section-actions {
   display: inline-flex;
   align-items: center;
@@ -285,8 +266,7 @@ a {
 }
 
 .j-button,
-.icon-button,
-.mini-button {
+.icon-button {
   border: 1px solid var(--j-border);
   border-radius: 2px;
   background: var(--j-bg3);
@@ -326,23 +306,23 @@ a {
   stroke: currentColor;
 }
 
-.icon-button[aria-label="Favorite"].active svg {
+.icon-button[aria-label="Favorite"].active svg,
+.icon-button[aria-label="Unfavorite"].active svg {
   fill: currentColor;
+  stroke: currentColor;
 }
 
 .j-button:hover,
 .icon-button:hover,
-.mini-button:hover,
 .library-button:hover,
-.j-section button:hover {
+.j-section .j-button:hover {
   border-color: color-mix(in srgb, var(--j-pink) 45%, var(--j-border));
 }
 
 .j-button:active,
 .icon-button:active,
-.mini-button:active,
 .library-button:active,
-.j-section button:active {
+.j-section .j-button:active {
   transform: translateY(1px);
 }
 
@@ -357,7 +337,6 @@ a {
 
 .icon-button svg,
 .j-button svg,
-.mini-button svg,
 .library-button svg,
 .tabbar svg {
   display: block;
@@ -436,15 +415,6 @@ a {
     2px 4px 0 var(--j-pink);
 }
 
-.mini-button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 5px;
-  min-height: 28px;
-  padding: 5px 9px;
-}
-
 .status-dot {
   display: inline-block;
   width: 8px;
@@ -469,6 +439,26 @@ a {
   letter-spacing: 1.5px;
   line-height: 1;
   text-transform: uppercase;
+}
+
+.version-notice {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  padding: 3px 6px;
+  border: 1px solid color-mix(in srgb, var(--j-green) 34%, transparent);
+  color: var(--j-green);
+  font-size: 10px;
+  letter-spacing: 1.2px;
+  line-height: 1;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.version-notice svg {
+  display: block;
+  flex: 0 0 auto;
 }
 
 .ticker {
@@ -693,6 +683,18 @@ a {
 
 .row.playing {
   background: color-mix(in srgb, var(--j-pink) 9%, transparent);
+}
+
+.row.current {
+  background: color-mix(in srgb, var(--j-cream) 6%, transparent);
+}
+
+.row.buffering {
+  background: color-mix(in srgb, var(--j-green) 8%, transparent);
+}
+
+.row.error {
+  background: color-mix(in srgb, var(--j-pink) 15%, transparent);
 }
 
 .queue-item {
@@ -1171,6 +1173,29 @@ a {
 
 .metadata-log div {
   margin: 5px 0;
+}
+
+.metadata-log a,
+.metadata-log button {
+  appearance: none;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--j-text);
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.metadata-log a:hover,
+.metadata-log a:focus-visible,
+.metadata-log button:hover,
+.metadata-log button:focus-visible {
+  color: var(--j-accent);
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 .player-controls {

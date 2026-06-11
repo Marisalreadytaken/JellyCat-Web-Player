@@ -1,11 +1,20 @@
 import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useAppStore } from "@app/appStore";
 import { formatDuration } from "@domain/types";
 import { usePlayerStore } from "@core/player/audioService";
 import { jellyfinClient } from "@core/jellyfin";
 import { useLyricsStore } from "@core/player/lyricsService";
 import { Artwork, Divider, IconButton, JButton, PrimaryTabBar, ProgressBlocks, Ticker, icons } from "@shared/ui";
+
+const playbackStatusLabels = {
+  idle: "IDLE",
+  loading: "LOADING",
+  buffering: "BUFFERING",
+  playing: "PLAYBACK",
+  paused: "PAUSED",
+  error: "ERROR"
+} as const;
 
 export function NowPlayingView() {
   const navigate = useNavigate();
@@ -32,6 +41,15 @@ export function NowPlayingView() {
     if (!track) return;
     await jellyfinClient.updateFavoriteStatus(track.id, !track.isFavorite);
     usePlayerStore.setState({ currentTrack: { ...track, isFavorite: !track.isFavorite } });
+  };
+
+  const openArtist = async () => {
+    if (!track) return;
+    const artistId = track.artistId ?? await jellyfinClient.getArtists()
+      .then((artists) => artists.find((artist) => artist.name.toLowerCase() === track.artistName.toLowerCase())?.id)
+      .catch(() => undefined);
+
+    navigate(artistId ? `/library/artists/${encodeURIComponent(artistId)}` : "/library/artists");
   };
 
   return (
@@ -73,10 +91,10 @@ export function NowPlayingView() {
                 />
               ) : null}
             </div>
-            <button type="button" className="icon-button" aria-label="Queue" onClick={() => exitTo("/queue")}><icons.queue size={17} /></button>
+            <IconButton label="Queue" icon={icons.queue} onClick={() => exitTo("/queue")} />
           </div>
         ) : (
-          <button type="button" className="icon-button" aria-label="Queue" onClick={() => exitTo("/queue")}><icons.queue size={17} /></button>
+          <IconButton label="Queue" icon={icons.queue} onClick={() => exitTo("/queue")} />
         )}
       </div>
       <Divider />
@@ -92,8 +110,8 @@ export function NowPlayingView() {
               </section>
               <section className="metadata-log">
                 <div>■ TRACK: {track.title}</div>
-                <div>□ ARTIST: {track.artistName}</div>
-                <div>■ ALBUM: {track.albumName}</div>
+                <div>□ ARTIST: <button type="button" onClick={() => void openArtist()}>{track.artistName}</button></div>
+                <div>■ ALBUM: <Link to={`/library/albums/${encodeURIComponent(track.albumId)}`}>{track.albumName}</Link></div>
                 <div>□ FORMAT: {track.container ?? "AUDIO"}</div>
                 {track.bitrate ? <div>■ BITRATE: {track.bitrate} KBPS</div> : null}
                 {track.playCount !== undefined ? <div>□ PLAYS: {track.playCount}</div> : null}
@@ -108,7 +126,7 @@ export function NowPlayingView() {
         <div className="player-controls">
           <div className="time-row">
             <span>{formatDuration(player.currentTimeSeconds)}</span>
-            <span>PLAYBACK</span>
+            <span title={player.playbackError}>{playbackStatusLabels[player.playbackStatus]}</span>
             <span>{formatDuration(player.durationSeconds)}</span>
           </div>
           <div style={{ padding: "0 14px 8px" }}>
@@ -121,9 +139,9 @@ export function NowPlayingView() {
           </div>
           <Divider />
           <div className="transport-row">
-            <JButton onClick={player.previousTrack}>|◄◄</JButton>
+            <IconButton label="Previous" icon={icons.skipBack} onClick={player.previousTrack} />
             <JButton accent icon={player.isPlaying ? icons.pause : icons.play} onClick={player.togglePlayPause}>{player.isPlaying ? "PAUSE" : "PLAY"}</JButton>
-            <JButton onClick={player.nextTrack}>►►|</JButton>
+            <IconButton label="Next" icon={icons.skip} onClick={player.nextTrack} />
           </div>
           <PrimaryTabBar />
         </div>

@@ -76,6 +76,7 @@ function AnalyticsReporter() {
 function RoutedApp() {
   const theme = useAppStore((state) => state.theme);
   const checkConnection = useAppStore((state) => state.checkConnection);
+  const checkForUpdate = useAppStore((state) => state.checkForUpdate);
   const currentTrack = usePlayerStore((state) => state.currentTrack);
   const location = useLocation();
 
@@ -88,6 +89,12 @@ function RoutedApp() {
     const id = window.setInterval(() => void checkConnection(), 30_000);
     return () => window.clearInterval(id);
   }, [checkConnection]);
+
+  useEffect(() => {
+    void checkForUpdate();
+    const id = window.setInterval(() => void checkForUpdate(), 30 * 60_000);
+    return () => window.clearInterval(id);
+  }, [checkForUpdate]);
 
   const isFullscreenRoute = location.pathname === "/queue" || location.pathname === "/now-playing";
   const pageTransitionClass = isFullscreenRoute ? "route-transition fullscreen-route-transition" : "route-transition";

@@ -214,12 +214,13 @@ export function PlaylistDetailView() {
               <option value="name">NAME</option>
               <option value="recent">RECENT</option>
             </select>
-            <JButton onClick={() => setShowAdd(true)}>ADD SONGS</JButton>
+            <JButton icon={icons.plus} onClick={() => setShowAdd(true)}>ADD SONGS</JButton>
             <label className="j-button">
+              <icons.upload size={15} />
               COVER
               <input type="file" accept="image/*" hidden onChange={(event) => void uploadCover(event)} />
             </label>
-            <JButton onClick={() => void rename()}>RENAME</JButton>
+            <JButton icon={icons.edit} onClick={() => void rename()}>RENAME</JButton>
             <JButton accent icon={icons.trash} onClick={() => void removePlaylist()}>DELETE</JButton>
           </div>
         </aside>
@@ -227,17 +228,17 @@ export function PlaylistDetailView() {
           <div className="j-section">
             <span>TRACKLIST :: {isLimited ? `${displayedStart}-${displayedEnd} / ` : ""}{totalTracks} TRACKS</span>
             <div className="section-actions">
-              <button className={isLimited ? "" : "active"} type="button" onClick={() => setIsLimited((value) => !value)}>
+              <JButton icon={icons.filter} accent={!isLimited} onClick={() => setIsLimited((value) => !value)}>
                 {isLimited ? "LIMIT 200" : "LIMITLESS"}
-              </button>
+              </JButton>
             </div>
           </div>
           {isLimited ? (
             <div className="action-row">
               <div className="page-controls">
-                <JButton disabled={safePage === 0} onClick={() => setPage((value) => Math.max(0, value - 1))}>PREV</JButton>
+                <JButton icon={icons.arrowLeft} disabled={safePage === 0} onClick={() => setPage((value) => Math.max(0, value - 1))}>PREV</JButton>
                 <span>PAGE {safePage + 1} / {pageCount}</span>
-                <JButton disabled={safePage >= pageCount - 1} onClick={() => setPage((value) => Math.min(pageCount - 1, value + 1))}>NEXT</JButton>
+                <JButton icon={icons.arrowRight} disabled={safePage >= pageCount - 1} onClick={() => setPage((value) => Math.min(pageCount - 1, value + 1))}>NEXT</JButton>
               </div>
             </div>
           ) : null}

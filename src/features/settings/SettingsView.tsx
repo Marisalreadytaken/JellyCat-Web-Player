@@ -24,9 +24,13 @@ export function SettingsView() {
     setLocalJellyfinLyrics,
     setSession,
     connection,
-    checkConnection
+    checkConnection,
+    appVersion,
+    latestVersion,
+    isUpdateAvailable
   } = useAppStore();
   const clearRecentActivity = useRecentActivityStore((state) => state.clear);
+  const infoTitle = `INFO - v${appVersion}${isUpdateAvailable && latestVersion ? ` -- NEW v${latestVersion}` : ""}`;
 
   const clearCache = () => {
     queryClient.clear();
@@ -52,7 +56,7 @@ export function SettingsView() {
           <div className="settings-row"><StatusDot online={connection.isServerAvailable} />{connection.isServerAvailable ? "CONNECTED" : "OFFLINE"}</div>
           {connection.diagnostic ? <div className="settings-row" style={{ color: "var(--j-pink)" }}>{connection.diagnostic}</div> : null}
           <div className="settings-row">
-            <JButton accent onClick={() => setSession(null)}>DISCONNECT</JButton>
+            <JButton accent icon={icons.logout} onClick={() => setSession(null)}>DISCONNECT</JButton>
           </div>
         </section>
         <section className="settings-section">
@@ -83,12 +87,12 @@ export function SettingsView() {
           <div className="settings-row">
             <span>LOCAL APP DATA</span>
             <span className="spacer" />
-            <JButton onClick={clearCache}>CLEAR CACHE</JButton>
+            <JButton icon={icons.trash} onClick={clearCache}>CLEAR CACHE</JButton>
           </div>
           {cacheMessage ? <div className="settings-row settings-note">{cacheMessage}</div> : null}
         </section>
         <section className="settings-section">
-          <Section title="INFO" />
+          <Section title={infoTitle} />
           <nav className="settings-links" aria-label="Information pages">
             <Link to="/about">ABOUT</Link>
             <Link to="/privacy">PRIVACY</Link>

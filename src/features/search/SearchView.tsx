@@ -1,9 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
 import type { SearchResults, Track } from "@domain/types";
 import { friendlyErrorMessage, jellyfinClient } from "@core/jellyfin";
 import { preferenceStorage } from "@core/storage/storage";
-import { AlbumCard, ArtistRow, CheckerStrip, EmptyState, IconButton, KofiButton, LoadingState, Section, TrackRow, icons } from "@shared/ui";
+import { AlbumCard, ArtistRow, CheckerStrip, EmptyState, IconButton, JLinkButton, KofiButton, LoadingState, Section, TrackRow, icons } from "@shared/ui";
 
 const emptyResults: SearchResults = { artists: [], albums: [], tracks: [] };
 
@@ -136,7 +135,7 @@ function SearchResultsView({ results }: { results: SearchResults }) {
         </>
       ) : null}
       <div style={{ height: 120 }} />
-      <Link to="/library" className="j-button" style={{ margin: 14 }}>BACK TO LIBRARY</Link>
+      <JLinkButton to="/library" icon={icons.back} className="trust-action">BACK TO LIBRARY</JLinkButton>
     </>
   );
 }

@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { RepeatMode, Track } from "@domain/types";
+import type { PlaybackStatus, RepeatMode, Track } from "@domain/types";
 import { ticksToSeconds } from "@domain/types";
 import { jellyfinClient } from "@core/jellyfin";
 import { useLyricsStore } from "./lyricsService";
@@ -14,6 +14,8 @@ interface PlayerState {
   currentTimeSeconds: number;
   durationSeconds: number;
   volume: number;
+  playbackStatus: PlaybackStatus;
+  playbackError?: string;
 }
 
 interface PlayerStore extends PlayerState {
@@ -42,7 +44,9 @@ const initialPlayerState: PlayerState = {
   repeatMode: "none",
   currentTimeSeconds: 0,
   durationSeconds: 0,
-  volume: 1
+  volume: 1,
+  playbackStatus: "idle",
+  playbackError: undefined
 };
 
 class BrowserAudioService {
@@ -53,6 +57,13 @@ class BrowserAudioService {
 
   constructor() {
     this.audio.preload = "auto";
+    this.audio.addEventListener("loadstart", () => this.setPlaybackStatus("loading"));
+    this.audio.addEventListener("waiting", () => this.setPlaybackStatus("buffering"));
+    this.audio.addEventListener("stalled", () => this.setPlaybackStatus("buffering"));
+    this.audio.addEventListener("canplay", () => this.onCanPlay());
+    this.audio.addEventListener("playing", () => this.onPlaying());
+    this.audio.addEventListener("pause", () => this.onPause());
+    this.audio.addEventListener("error", () => this.onError());
     this.audio.addEventListener("timeupdate", () => this.onTimeUpdate());
     this.audio.addEventListener("durationchange", () => this.onDurationChange());
     this.audio.addEventListener("ended", () => this.onEnded());
@@ -70,7 +81,10 @@ class BrowserAudioService {
       queue,
       currentTrack: state.isShuffled ? queue[0] : startingTrack,
       currentTimeSeconds: 0,
-      durationSeconds: ticksToSeconds(startingTrack.durationTicks)
+      durationSeconds: ticksToSeconds(startingTrack.durationTicks),
+      isPlaying: false,
+      playbackStatus: "loading",
+      playbackError: undefined
     });
     void this.loadCurrentAndPlay();
   }
@@ -80,12 +94,15 @@ class BrowserAudioService {
     if (!state.currentTrack) return;
     if (state.isPlaying) {
       this.audio.pause();
-      usePlayerStore.setState({ isPlaying: false });
+      usePlayerStore.setState({ isPlaying: false, playbackStatus: "paused", playbackError: undefined });
       this.updateMediaSession();
       void jellyfinClient.reportPlaybackProgress(state.currentTrack.id, this.audio.currentTime, true);
     } else {
-      await this.audio.play().catch(() => undefined);
-      usePlayerStore.setState({ isPlaying: !this.audio.paused });
+      usePlayerStore.setState({ playbackStatus: "loading", playbackError: undefined });
+      const started = await this.audio.play().then(() => true).catch(() => false);
+      usePlayerStore.setState(started
+        ? { isPlaying: !this.audio.paused, playbackStatus: this.audio.paused ? "paused" : "playing", playbackError: undefined }
+        : { isPlaying: false, playbackStatus: "error", playbackError: "Playback could not start." });
       this.updateMediaSession();
     }
   }
@@ -102,13 +119,13 @@ class BrowserAudioService {
     const currentIndex = state.queue.findIndex((track) => track.id === state.currentTrack?.id);
     const nextIndex = currentIndex + 1;
     if (nextIndex < state.queue.length) {
-      usePlayerStore.setState({ currentTrack: state.queue[nextIndex], currentTimeSeconds: 0 });
+      usePlayerStore.setState({ currentTrack: state.queue[nextIndex], currentTimeSeconds: 0, isPlaying: false, playbackStatus: "loading", playbackError: undefined });
       void this.loadCurrentAndPlay();
     } else if (state.repeatMode === "all" && state.originalQueue.length) {
       this.play(state.originalQueue, 0);
     } else {
       this.audio.pause();
-      usePlayerStore.setState({ isPlaying: false });
+      usePlayerStore.setState({ isPlaying: false, playbackStatus: "paused", playbackError: undefined });
       void jellyfinClient.reportPlaybackStopped(state.currentTrack.id, this.audio.currentTime);
     }
   }
@@ -123,7 +140,7 @@ class BrowserAudioService {
     const currentIndex = state.queue.findIndex((track) => track.id === state.currentTrack?.id);
     const previousIndex = currentIndex - 1;
     if (previousIndex >= 0) {
-      usePlayerStore.setState({ currentTrack: state.queue[previousIndex], currentTimeSeconds: 0 });
+      usePlayerStore.setState({ currentTrack: state.queue[previousIndex], currentTimeSeconds: 0, isPlaying: false, playbackStatus: "loading", playbackError: undefined });
       void this.loadCurrentAndPlay();
     } else {
       this.seek(0);
@@ -174,7 +191,7 @@ class BrowserAudioService {
   jumpTo(index: number): void {
     const state = usePlayerStore.getState();
     if (index < 0 || index >= state.queue.length) return;
-    usePlayerStore.setState({ currentTrack: state.queue[index], currentTimeSeconds: 0 });
+    usePlayerStore.setState({ currentTrack: state.queue[index], currentTimeSeconds: 0, isPlaying: false, playbackStatus: "loading", playbackError: undefined });
     void this.loadCurrentAndPlay();
   }
 
@@ -185,7 +202,7 @@ class BrowserAudioService {
       originalQueue: [...state.originalQueue, track]
     });
     if (!state.currentTrack) {
-      usePlayerStore.setState({ currentTrack: track });
+      usePlayerStore.setState({ currentTrack: track, isPlaying: false, playbackStatus: "loading", playbackError: undefined });
       void this.loadCurrentAndPlay();
     } else {
       this.preloadNext();
@@ -214,7 +231,7 @@ class BrowserAudioService {
     if (removingCurrent) {
       if (!queue.length) this.clearQueue();
       else {
-        usePlayerStore.setState({ currentTrack: queue[Math.min(index, queue.length - 1)] });
+        usePlayerStore.setState({ currentTrack: queue[Math.min(index, queue.length - 1)], isPlaying: false, playbackStatus: "loading", playbackError: undefined });
         void this.loadCurrentAndPlay();
       }
     }
@@ -241,16 +258,24 @@ class BrowserAudioService {
     const track = usePlayerStore.getState().currentTrack;
     if (!track) return;
     this.lastReportedProgress = -1;
+    usePlayerStore.setState({ isPlaying: false, playbackStatus: "loading", playbackError: undefined });
     const previous = usePlayerStore.getState().currentTrack;
     if (previous && previous.id !== track.id) void jellyfinClient.reportPlaybackStopped(previous.id, this.audio.currentTime);
     const src = await this.resolveSource(track);
     this.audio.src = src;
     this.audio.load();
-    await this.audio.play().catch(() => undefined);
+    const started = await this.audio.play().then(() => true).catch(() => false);
     usePlayerStore.setState({
-      isPlaying: !this.audio.paused,
-      durationSeconds: ticksToSeconds(track.durationTicks)
+      isPlaying: started && !this.audio.paused,
+      durationSeconds: ticksToSeconds(track.durationTicks),
+      playbackStatus: started ? (this.audio.paused ? "paused" : "playing") : "error",
+      playbackError: started ? undefined : "Playback could not start."
     });
+    if (!started) {
+      this.updateMediaSession();
+      void useLyricsStore.getState().fetchLyrics(track);
+      return;
+    }
     this.preloadNext();
     this.updateMediaSession();
     void jellyfinClient.reportPlaybackStarted(track.id);
@@ -294,6 +319,41 @@ class BrowserAudioService {
     }
   }
 
+  private setPlaybackStatus(playbackStatus: PlaybackStatus): void {
+    const state = usePlayerStore.getState();
+    if (!state.currentTrack) return;
+    usePlayerStore.setState({ playbackStatus, playbackError: undefined });
+    this.updateMediaSession();
+  }
+
+  private onCanPlay(): void {
+    const state = usePlayerStore.getState();
+    if (!state.currentTrack || state.playbackStatus === "playing") return;
+    if (state.playbackStatus === "buffering" && !this.audio.paused) {
+      usePlayerStore.setState({ playbackStatus: "loading", playbackError: undefined });
+      this.updateMediaSession();
+    }
+  }
+
+  private onPlaying(): void {
+    if (!usePlayerStore.getState().currentTrack) return;
+    usePlayerStore.setState({ playbackStatus: "playing", isPlaying: true, playbackError: undefined });
+    this.updateMediaSession();
+  }
+
+  private onPause(): void {
+    const state = usePlayerStore.getState();
+    if (!state.currentTrack || state.playbackStatus === "idle" || state.playbackStatus === "error") return;
+    usePlayerStore.setState({ playbackStatus: "paused", isPlaying: false, playbackError: undefined });
+    this.updateMediaSession();
+  }
+
+  private onError(): void {
+    if (!usePlayerStore.getState().currentTrack) return;
+    usePlayerStore.setState({ playbackStatus: "error", playbackError: "Playback failed.", isPlaying: false });
+    this.updateMediaSession();
+  }
+
   private onEnded(): void {
     const state = usePlayerStore.getState();
     if (state.repeatMode === "one") {
@@ -317,7 +377,7 @@ class BrowserAudioService {
       album: track.albumName,
       artwork
     });
-    navigator.mediaSession.playbackState = state.isPlaying ? "playing" : "paused";
+    navigator.mediaSession.playbackState = state.playbackStatus === "playing" || state.playbackStatus === "buffering" ? "playing" : "paused";
     const handlers: Partial<Record<MediaSessionAction, MediaSessionActionHandler>> = {
       play: () => void this.togglePlayPause(),
       pause: () => void this.togglePlayPause(),

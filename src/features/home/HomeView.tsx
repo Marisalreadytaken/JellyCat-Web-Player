@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
-import { Link, useNavigate } from "react-router-dom";
-import { AlbumCard, CheckerStrip, Divider, EmptyState, JButton, KofiButton, LoadingState, RecentItemCard, Section, StatusDot, Ticker, icons } from "@shared/ui";
+import { useNavigate } from "react-router-dom";
+import { AlbumCard, CheckerStrip, Divider, EmptyState, IconLinkButton, JButton, KofiButton, LoadingState, RecentItemCard, Section, StatusDot, Ticker, icons } from "@shared/ui";
 import { useAppStore } from "@app/appStore";
 import { jellyfinClient } from "@core/jellyfin";
 import { usePlayerStore } from "@core/player/audioService";
@@ -10,6 +10,7 @@ import { loadSongsSort } from "../library/songsPreferences";
 export function HomeView() {
   const navigate = useNavigate();
   const connection = useAppStore((state) => state.connection);
+  const isUpdateAvailable = useAppStore((state) => state.isUpdateAvailable);
   const player = usePlayerStore();
   const recentItems = useRecentActivityStore((state) => state.items);
   const albumsQuery = useQuery({
@@ -48,7 +49,13 @@ export function HomeView() {
         <span className="spacer" />
         <StatusDot online={connection.isServerAvailable} />
         <span className="row-subtitle">{connection.isServerAvailable ? "ONLINE" : "SERVER UNAVAILABLE"}</span>
-        <Link to="/settings" className="icon-button" aria-label="Settings"><icons.settings size={17} /></Link>
+        {isUpdateAvailable ? (
+          <span className="version-notice" title="A new JellyCat version is available">
+            <icons.update size={14} />
+            NEW VER.
+          </span>
+        ) : null}
+        <IconLinkButton label="Settings" icon={icons.settings} to="/settings" />
       </div>
       <CheckerStrip />
       <Ticker track={player.currentTrack} />
