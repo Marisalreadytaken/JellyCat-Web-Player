@@ -23,6 +23,7 @@ You can also use Docker Compose:
 ```
 services:
   jellycat:
+    container_name: Jellycat
     image: maralreadytaken/jellycat:latest
     ports:
       - "3003:80"
@@ -33,6 +34,12 @@ docker compose up -d
 ```
 
 `docker-compose.yml` uses the published `maralreadytaken/jellycat:latest` image.
+
+To update to the latest version on docker compose:
+```
+docker compose pull jellycat
+docker compose up -d jellycat
+```
 
 
 To build the self-hosted Docker image locally:
