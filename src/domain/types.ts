@@ -2,6 +2,7 @@ export type RepeatMode = "none" | "all" | "one";
 export type AppTheme = "original" | "mocha" | "macchiato" | "frappe" | "latte";
 export type RecentItemType = "album" | "playlist";
 export type PlaybackStatus = "idle" | "loading" | "buffering" | "playing" | "paused" | "error";
+export type SmartMixId = "favorites" | "recently-added" | "unplayed" | "artist-radio";
 
 export interface AuthSession {
   serverUrl: string;
@@ -53,6 +54,36 @@ export interface Track {
   bitrate?: number;
   playCount?: number;
   dateCreated?: string;
+}
+
+export interface SmartMixDefinition {
+  id: SmartMixId;
+  title: string;
+  description: string;
+}
+
+export interface SmartMixResult {
+  definition: SmartMixDefinition;
+  tracks: Track[];
+  generatedAt: string;
+}
+
+export interface QueueSnapshot {
+  id: string;
+  name: string;
+  queue: Track[];
+  currentIndex: number;
+  createdAt: string;
+}
+
+export interface SavedProfile {
+  id: string;
+  label: string;
+  serverUrl: string;
+  username: string;
+  userId?: string;
+  persistence: "session" | "persistent" | "none";
+  lastUsedAt: string;
 }
 
 export interface SearchResults {

@@ -1,4 +1,4 @@
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { JButton, CheckerStrip, KofiButton, icons } from "@shared/ui";
 import { friendlyErrorMessage, jellyfinClient } from "@core/jellyfin";
@@ -12,8 +12,18 @@ export function LoginView() {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const setSession = useAppStore((state) => state.setSession);
+  const profiles = useAppStore((state) => state.profiles);
+  const activeProfileId = useAppStore((state) => state.activeProfileId);
   const navigate = useNavigate();
   const location = useLocation();
+  const activeProfile = profiles.find((profile) => profile.id === activeProfileId);
+
+  useEffect(() => {
+    if (!activeProfile) return;
+    setServerUrl(activeProfile.serverUrl);
+    setUsername(activeProfile.username);
+    setRememberBrowser(activeProfile.persistence === "persistent");
+  }, [activeProfile]);
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -36,6 +46,7 @@ export function LoginView() {
       <form className="form-panel" onSubmit={submit}>
         <h1>JELLYCAT</h1>
         <p>Static web terminal for your Jellyfin music library</p>
+        {activeProfile ? <p>PROFILE / {activeProfile.label}</p> : null}
         <div className="form-stack">
           <input className="form-input" placeholder="SERVER URL" value={serverUrl} onChange={(event) => setServerUrl(event.target.value)} autoComplete="url" required />
           <input className="form-input" placeholder="USERNAME" value={username} onChange={(event) => setUsername(event.target.value)} autoComplete="username" required />

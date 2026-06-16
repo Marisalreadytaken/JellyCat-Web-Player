@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 import type { AuthSession } from "@domain/types";
-import { authSessionStorage, preferenceStorage, storageKeys } from "./storage";
+import { authSessionStorage, preferenceStorage, profileStorage, storageKeys } from "./storage";
 
 const session: AuthSession = {
   serverUrl: "https://jellyfin.example",
@@ -54,5 +54,38 @@ describe("preferenceStorage", () => {
 
     expect(localStorage.getItem(storageKeys.localJellyfinLyrics)).toBe("false");
     expect(preferenceStorage.loadLocalJellyfinLyrics()).toBe(false);
+  });
+});
+
+describe("profileStorage", () => {
+  afterEach(() => {
+    localStorage.clear();
+    sessionStorage.clear();
+  });
+
+  it("stores session profile tokens only in sessionStorage", () => {
+    const profile = profileStorage.upsertSession(session, "session");
+
+    expect(profile.persistence).toBe("session");
+    expect(localStorage.getItem(storageKeys.profilePersistentTokens)).toBe("[]");
+    expect(sessionStorage.getItem(storageKeys.profileSessionTokens)).toContain("token-1");
+    expect(profileStorage.loadSession(profile.id)?.session).toEqual(session);
+  });
+
+  it("stores persistent profile tokens only after persistent opt-in", () => {
+    const profile = profileStorage.upsertSession(session, "persistent");
+
+    expect(profile.persistence).toBe("persistent");
+    expect(localStorage.getItem(storageKeys.profilePersistentTokens)).toContain("token-1");
+    expect(sessionStorage.getItem(storageKeys.profileSessionTokens)).toBe("[]");
+    expect(profileStorage.loadSession(profile.id)?.persistence).toBe("persistent");
+  });
+
+  it("can save a profile placeholder without a token", () => {
+    const profile = profileStorage.createPlaceholder("https://jellyfin.example/", "mar");
+
+    expect(profile.persistence).toBe("none");
+    expect(profile.serverUrl).toBe("https://jellyfin.example");
+    expect(profileStorage.loadSession(profile.id)).toBeNull();
   });
 });

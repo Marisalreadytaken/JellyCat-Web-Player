@@ -1,7 +1,8 @@
 import { create } from "zustand";
-import type { PlaybackStatus, RepeatMode, Track } from "@domain/types";
+import type { PlaybackStatus, QueueSnapshot, RepeatMode, Track } from "@domain/types";
 import { ticksToSeconds } from "@domain/types";
 import { jellyfinClient } from "@core/jellyfin";
+import { queueSnapshotStorage, recentTrackStorage } from "@core/storage/storage";
 import { useLyricsStore } from "./lyricsService";
 
 interface PlayerState {
@@ -16,6 +17,8 @@ interface PlayerState {
   volume: number;
   playbackStatus: PlaybackStatus;
   playbackError?: string;
+  lastQueueSnapshot: QueueSnapshot | null;
+  queueHistory: QueueSnapshot[];
 }
 
 interface PlayerStore extends PlayerState {
@@ -32,8 +35,13 @@ interface PlayerStore extends PlayerState {
   playNext: (track: Track) => void;
   removeFromQueue: (index: number) => void;
   moveQueueItem: (source: number, destination: number) => void;
+  clearPlayed: () => void;
+  restoreQueueSnapshot: (snapshot: QueueSnapshot) => void;
+  saveQueueAsPlaylist: (name: string) => Promise<string>;
   clearQueue: () => void;
 }
+
+const storedQueueSnapshots = queueSnapshotStorage.load();
 
 const initialPlayerState: PlayerState = {
   queue: [],
@@ -46,8 +54,32 @@ const initialPlayerState: PlayerState = {
   durationSeconds: 0,
   volume: 1,
   playbackStatus: "idle",
-  playbackError: undefined
+  playbackError: undefined,
+  lastQueueSnapshot: storedQueueSnapshots.last,
+  queueHistory: storedQueueSnapshots.history
 };
+
+function createQueueSnapshot(name: string, state: Pick<PlayerState, "queue" | "currentTrack">): QueueSnapshot | null {
+  if (!state.queue.length) return null;
+  const currentIndex = state.currentTrack
+    ? Math.max(0, state.queue.findIndex((track) => track.id === state.currentTrack?.id))
+    : 0;
+  return {
+    id: `${Date.now()}-${state.currentTrack?.id ?? state.queue[0]?.id ?? "queue"}`,
+    name,
+    queue: state.queue,
+    currentIndex,
+    createdAt: new Date().toISOString()
+  };
+}
+
+function persistQueueSnapshot(name = "Last queue"): void {
+  const snapshot = createQueueSnapshot(name, usePlayerStore.getState());
+  if (!snapshot) return;
+  queueSnapshotStorage.saveSnapshot(snapshot);
+  const stored = queueSnapshotStorage.load();
+  usePlayerStore.setState({ lastQueueSnapshot: stored.last, queueHistory: stored.history });
+}
 
 class BrowserAudioService {
   private audio = new Audio();
@@ -86,6 +118,7 @@ class BrowserAudioService {
       playbackStatus: "loading",
       playbackError: undefined
     });
+    persistQueueSnapshot("Playback queue");
     void this.loadCurrentAndPlay();
   }
 
@@ -120,6 +153,7 @@ class BrowserAudioService {
     const nextIndex = currentIndex + 1;
     if (nextIndex < state.queue.length) {
       usePlayerStore.setState({ currentTrack: state.queue[nextIndex], currentTimeSeconds: 0, isPlaying: false, playbackStatus: "loading", playbackError: undefined });
+      persistQueueSnapshot("Playback queue");
       void this.loadCurrentAndPlay();
     } else if (state.repeatMode === "all" && state.originalQueue.length) {
       this.play(state.originalQueue, 0);
@@ -141,6 +175,7 @@ class BrowserAudioService {
     const previousIndex = currentIndex - 1;
     if (previousIndex >= 0) {
       usePlayerStore.setState({ currentTrack: state.queue[previousIndex], currentTimeSeconds: 0, isPlaying: false, playbackStatus: "loading", playbackError: undefined });
+      persistQueueSnapshot("Playback queue");
       void this.loadCurrentAndPlay();
     } else {
       this.seek(0);
@@ -179,6 +214,7 @@ class BrowserAudioService {
     }
     this.preloadNext();
     this.updateMediaSession();
+    persistQueueSnapshot("Playback queue");
   }
 
   toggleRepeatMode(): void {
@@ -192,6 +228,7 @@ class BrowserAudioService {
     const state = usePlayerStore.getState();
     if (index < 0 || index >= state.queue.length) return;
     usePlayerStore.setState({ currentTrack: state.queue[index], currentTimeSeconds: 0, isPlaying: false, playbackStatus: "loading", playbackError: undefined });
+    persistQueueSnapshot("Playback queue");
     void this.loadCurrentAndPlay();
   }
 
@@ -207,6 +244,7 @@ class BrowserAudioService {
     } else {
       this.preloadNext();
     }
+    persistQueueSnapshot("Playback queue");
   }
 
   playNext(track: Track): void {
@@ -220,6 +258,7 @@ class BrowserAudioService {
     queue.splice(currentIndex + 1, 0, track);
     usePlayerStore.setState({ queue, originalQueue: queue });
     this.preloadNext();
+    persistQueueSnapshot("Playback queue");
   }
 
   removeFromQueue(index: number): void {
@@ -235,6 +274,7 @@ class BrowserAudioService {
         void this.loadCurrentAndPlay();
       }
     }
+    persistQueueSnapshot("Playback queue");
   }
 
   moveQueueItem(source: number, destination: number): void {
@@ -244,6 +284,43 @@ class BrowserAudioService {
     if (!item) return;
     queue.splice(destination, 0, item);
     usePlayerStore.setState({ queue, originalQueue: queue });
+    persistQueueSnapshot("Playback queue");
+  }
+
+  clearPlayed(): void {
+    const state = usePlayerStore.getState();
+    if (!state.currentTrack) return;
+    const currentIndex = state.queue.findIndex((track) => track.id === state.currentTrack?.id);
+    if (currentIndex <= 0) return;
+    const queue = state.queue.slice(currentIndex);
+    usePlayerStore.setState({ queue, originalQueue: queue });
+    persistQueueSnapshot("Playback queue");
+  }
+
+  restoreQueueSnapshot(snapshot: QueueSnapshot): void {
+    const currentTrack = snapshot.queue[snapshot.currentIndex] ?? snapshot.queue[0] ?? null;
+    this.audio.pause();
+    this.audio.removeAttribute("src");
+    usePlayerStore.setState({
+      queue: snapshot.queue,
+      originalQueue: snapshot.queue,
+      currentTrack,
+      currentTimeSeconds: 0,
+      durationSeconds: currentTrack ? ticksToSeconds(currentTrack.durationTicks) : 0,
+      isPlaying: false,
+      playbackStatus: currentTrack ? "loading" : "idle",
+      playbackError: undefined
+    });
+    persistQueueSnapshot(snapshot.name);
+    void this.loadCurrentPaused();
+  }
+
+  async saveQueueAsPlaylist(name: string): Promise<string> {
+    const queue = usePlayerStore.getState().queue;
+    if (!queue.length) throw new Error("Queue is empty.");
+    const playlistId = await jellyfinClient.createPlaylist(name);
+    await jellyfinClient.addTracksToPlaylist(playlistId, queue.map((track) => track.id));
+    return playlistId;
   }
 
   clearQueue(): void {
@@ -251,7 +328,23 @@ class BrowserAudioService {
     if (state.currentTrack) void jellyfinClient.reportPlaybackStopped(state.currentTrack.id, this.audio.currentTime);
     this.audio.pause();
     this.audio.removeAttribute("src");
-    usePlayerStore.setState({ ...initialPlayerState, volume: state.volume });
+    usePlayerStore.setState({ ...initialPlayerState, volume: state.volume, lastQueueSnapshot: state.lastQueueSnapshot, queueHistory: state.queueHistory });
+  }
+
+  private async loadCurrentPaused(): Promise<void> {
+    const track = usePlayerStore.getState().currentTrack;
+    if (!track) return;
+    this.audio.src = await this.resolveSource(track);
+    this.audio.load();
+    usePlayerStore.setState({
+      isPlaying: false,
+      durationSeconds: ticksToSeconds(track.durationTicks),
+      playbackStatus: "paused",
+      playbackError: undefined
+    });
+    this.preloadNext();
+    this.updateMediaSession();
+    void useLyricsStore.getState().fetchLyrics(track);
   }
 
   private async loadCurrentAndPlay(): Promise<void> {
@@ -279,6 +372,7 @@ class BrowserAudioService {
     this.preloadNext();
     this.updateMediaSession();
     void jellyfinClient.reportPlaybackStarted(track.id);
+    recentTrackStorage.record(track);
     void useLyricsStore.getState().fetchLyrics(track);
   }
 
@@ -429,5 +523,8 @@ export const usePlayerStore = create<PlayerStore>(() => ({
   playNext: (track) => audioService.playNext(track),
   removeFromQueue: (index) => audioService.removeFromQueue(index),
   moveQueueItem: (source, destination) => audioService.moveQueueItem(source, destination),
+  clearPlayed: () => audioService.clearPlayed(),
+  restoreQueueSnapshot: (snapshot) => audioService.restoreQueueSnapshot(snapshot),
+  saveQueueAsPlaylist: (name) => audioService.saveQueueAsPlaylist(name),
   clearQueue: () => audioService.clearQueue()
 }));

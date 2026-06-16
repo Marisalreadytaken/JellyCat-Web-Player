@@ -10,6 +10,10 @@ import { appVersion } from "@core/version";
 
 const clientInfo = { name: "JellyCat Web", version: appVersion };
 const deviceIdKey = "jellycat:web:deviceId";
+const maxSearchVariants = 5;
+const looseSearchLimit = 1000;
+const looseArtistSearchLimit = 500;
+const looseSearchResultLimit = 50;
 
 function createDeviceId(): string {
   if (globalThis.crypto?.randomUUID) {
@@ -34,6 +38,93 @@ function getDeviceId(): string {
   const next = createDeviceId();
   localStorage.setItem(deviceIdKey, next);
   return next;
+}
+
+function tidySearchQuery(query: string): string {
+  return query.trim().replace(/\s+/g, " ");
+}
+
+function addUniqueSearchVariant(variants: string[], query: string): void {
+  const normalized = tidySearchQuery(query);
+  if (!normalized) return;
+  if (variants.some((item) => item.toLowerCase() === normalized.toLowerCase())) return;
+  if (variants.length < maxSearchVariants) variants.push(normalized);
+}
+
+function buildSearchVariants(query: string): string[] {
+  const variants: string[] = [];
+  const base = tidySearchQuery(query);
+  addUniqueSearchVariant(variants, base);
+
+  const punctuationLoose = tidySearchQuery(base.replace(/[^\p{L}\p{N}&]+/gu, " "));
+  addUniqueSearchVariant(variants, punctuationLoose);
+
+  const withAmpersand = tidySearchQuery(punctuationLoose.replace(/\band\b/gi, "&"));
+  addUniqueSearchVariant(variants, withAmpersand);
+
+  const withAnd = tidySearchQuery(punctuationLoose.replace(/&/g, " and "));
+  addUniqueSearchVariant(variants, withAnd);
+
+  const withoutConnector = tidySearchQuery(withAnd.replace(/\band\b/gi, " "));
+  addUniqueSearchVariant(variants, withoutConnector);
+
+  const withApostrophes = tidySearchQuery(punctuationLoose.replace(/\b(\p{L}+)nt\b/giu, (match, prefix: string) => {
+    return match === match.toUpperCase() ? `${prefix}N'T` : `${prefix}n't`;
+  }));
+  addUniqueSearchVariant(variants, withApostrophes);
+
+  return variants;
+}
+
+function looseSearchKey(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/['’]/g, "")
+    .replace(/&/g, " and ")
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, " ");
+}
+
+function looseSearchTokens(query: string): string[] {
+  const key = looseSearchKey(query).replace(/\band\b/g, " ");
+  return Array.from(new Set(key.split(" ").filter((token) => token.length >= 2)));
+}
+
+function looseMatches(query: string, values: string[]): boolean {
+  const tokens = looseSearchTokens(query);
+  if (!tokens.length) return false;
+  const key = looseSearchKey(values.filter(Boolean).join(" "));
+  return tokens.every((token) => key.includes(token));
+}
+
+function mergeSearchResults(resultSets: SearchResults[]): SearchResults {
+  const merged: SearchResults = { artists: [], albums: [], tracks: [] };
+  const artists = new Set<string>();
+  const albums = new Set<string>();
+  const tracks = new Set<string>();
+
+  for (const results of resultSets) {
+    for (const artist of results.artists) {
+      if (artists.has(artist.id)) continue;
+      artists.add(artist.id);
+      merged.artists.push(artist);
+    }
+    for (const album of results.albums) {
+      if (albums.has(album.id)) continue;
+      albums.add(album.id);
+      merged.albums.push(album);
+    }
+    for (const track of results.tracks) {
+      if (tracks.has(track.id)) continue;
+      tracks.add(track.id);
+      merged.tracks.push(track);
+    }
+  }
+
+  return merged;
 }
 
 class JellyfinClient {
@@ -199,27 +290,22 @@ class JellyfinClient {
     return { playlists, total: data.TotalRecordCount ?? playlists.length };
   }
 
-  async createPlaylist(name: string): Promise<void> {
+  async createPlaylist(name: string): Promise<string> {
     const session = this.requireSession();
-    await this.request(`/Playlists?${encodeQuery([
+    const created = await this.request<{ Id?: string }>(`/Playlists?${encodeQuery([
       ["name", name],
       ["userId", session.userId],
       ["mediaType", "Audio"]
     ])}`, { method: "POST", acceptJson: true });
+    if (!created.Id) throw new Error("Jellyfin did not return the created playlist ID.");
+    return created.Id;
   }
 
   async renamePlaylist(playlistId: string, newName: string): Promise<string> {
     const tracks = await this.getPlaylistTracks(playlistId);
     const cover = await this.fetchArtworkBytes(playlistId).catch(() => null);
     await this.deletePlaylist(playlistId);
-    const session = this.requireSession();
-    const created = await this.request<{ Id?: string }>(`/Playlists?${encodeQuery([
-      ["name", newName],
-      ["userId", session.userId],
-      ["mediaType", "Audio"]
-    ])}`, { method: "POST", acceptJson: true });
-    const newId = created.Id;
-    if (!newId) throw new Error("Jellyfin did not return the renamed playlist ID.");
+    const newId = await this.createPlaylist(newName);
     if (tracks.length) await this.addTracksToPlaylist(newId, tracks.map((track) => track.id));
     if (cover) await this.uploadPlaylistImage(newId, cover.buffer, cover.mimeType);
     return newId;
@@ -310,6 +396,15 @@ class JellyfinClient {
   }
 
   async search(query: string): Promise<SearchResults> {
+    const variants = buildSearchVariants(query);
+    const results = await Promise.all([
+      ...variants.map((variant) => this.searchExact(variant)),
+      this.searchLoose(query)
+    ]);
+    return mergeSearchResults(results);
+  }
+
+  private async searchExact(query: string): Promise<SearchResults> {
     const session = this.requireSession();
     const data = await this.request<ItemsResponse>(`/Users/${session.userId}/Items?${encodeQuery([
       ["searchTerm", query],
@@ -324,6 +419,47 @@ class JellyfinClient {
       if (item.Type === "MusicAlbum") results.albums.push(mapAlbum(item));
       if (item.Type === "Audio") results.tracks.push(mapTrack(item));
     }
+    return results;
+  }
+
+  private async searchLoose(query: string): Promise<SearchResults> {
+    if (looseSearchTokens(query).join("").length < 3) return { artists: [], albums: [], tracks: [] };
+
+    const session = this.requireSession();
+    const [artistData, mediaData] = await Promise.all([
+      this.request<ItemsResponse>(`/Users/${session.userId}/Items?${encodeQuery([
+        ["includeItemTypes", "MusicArtist"],
+        ["recursive", "true"],
+        ["sortBy", "SortName"],
+        ["sortOrder", "Ascending"],
+        ["limit", looseArtistSearchLimit],
+        ["fields", "ChildCount,PrimaryImageAspectRatio"]
+      ])}`),
+      this.request<ItemsResponse>(`/Users/${session.userId}/Items?${encodeQuery([
+        ["includeItemTypes", "MusicAlbum,Audio"],
+        ["recursive", "true"],
+        ["sortBy", "SortName"],
+        ["sortOrder", "Ascending"],
+        ["limit", looseSearchLimit],
+        ["fields", "PrimaryImageAspectRatio,ArtistItems,Container,MediaSources,PlayCount"]
+      ])}`)
+    ]);
+
+    const results: SearchResults = { artists: [], albums: [], tracks: [] };
+    for (const item of artistData.Items) {
+      if (item.Type === "MusicArtist" && results.artists.length < looseSearchResultLimit && looseMatches(query, [item.Name])) {
+        results.artists.push(mapArtist(item));
+      }
+    }
+    for (const item of mediaData.Items) {
+      if (item.Type === "MusicAlbum" && results.albums.length < looseSearchResultLimit && looseMatches(query, [item.Name, item.AlbumArtist ?? ""])) {
+        results.albums.push(mapAlbum(item));
+      }
+      if (item.Type === "Audio" && results.tracks.length < looseSearchResultLimit && looseMatches(query, [item.Name, item.Album ?? "", ...(item.Artists ?? [])])) {
+        results.tracks.push(mapTrack(item));
+      }
+    }
+
     return results;
   }
 
@@ -460,4 +596,17 @@ class JellyfinClient {
 }
 
 export const jellyfinClient = new JellyfinClient();
-export const jellyfinInternals = { createDeviceId, mapTrack, mapAlbum, mapArtist, mapPlaylist, mapLyrics, encodeQuery, maybeCorsDiagnostic };
+export const jellyfinInternals = {
+  createDeviceId,
+  mapTrack,
+  mapAlbum,
+  mapArtist,
+  mapPlaylist,
+  mapLyrics,
+  encodeQuery,
+  maybeCorsDiagnostic,
+  buildSearchVariants,
+  looseMatches,
+  looseSearchKey,
+  mergeSearchResults
+};
