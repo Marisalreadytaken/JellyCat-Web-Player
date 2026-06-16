@@ -1,6 +1,7 @@
 ![CI](https://github.com/Mariano14782/JellyCat-Web-Player/actions/workflows/ci.yml/badge.svg?style=flat-square)
 ![Docker Pulls](https://img.shields.io/docker/pulls/maralreadytaken/jellycat?color=e040a0&style=flat-square)
-![Version](https://img.shields.io/docker/v/maralreadytaken/jellycat/latest?color=40d0a0&style=flat-square)
+[![Version](https://img.shields.io/docker/v/maralreadytaken/jellycat?sort=semver&color=40d0a0&style=flat-square)](https://hub.docker.com/r/maralreadytaken/jellycat/tags)
+[![Latest Tag](https://img.shields.io/badge/docker-latest-40d0a0?style=flat-square)](https://hub.docker.com/r/maralreadytaken/jellycat/tags)
 ![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-e040a0?style=flat-square)
 # JellyCat Web Music Player
 
