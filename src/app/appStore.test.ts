@@ -49,11 +49,11 @@ describe("useAppStore auth persistence", () => {
   });
 
   it("marks the app when a newer release is available", async () => {
-    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ tag_name: "v1.2.0" }), { status: 200 })));
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ tag_name: "v9.9.9" }), { status: 200 })));
 
     await useAppStore.getState().checkForUpdate();
 
-    expect(useAppStore.getState().latestVersion).toBe("1.2.0");
+    expect(useAppStore.getState().latestVersion).toBe("9.9.9");
     expect(useAppStore.getState().isUpdateAvailable).toBe(true);
   });
 
