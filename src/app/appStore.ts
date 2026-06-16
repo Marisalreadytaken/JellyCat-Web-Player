@@ -1,6 +1,6 @@
 import { create } from "zustand";
-import type { AppTheme, AuthSession, ConnectionStatus } from "@domain/types";
-import { authSessionStorage, preferenceStorage, type AuthPersistence } from "@core/storage/storage";
+import type { AppTheme, AuthSession, ConnectionStatus, SavedProfile } from "@domain/types";
+import { authSessionStorage, preferenceStorage, profileStorage, type AuthPersistence } from "@core/storage/storage";
 import { jellyfinClient } from "@core/jellyfin";
 import { appVersion, fetchLatestVersion, isNewerVersion } from "@core/version";
 
@@ -15,7 +15,12 @@ interface AppStore {
   localJellyfinLyrics: boolean;
   connection: ConnectionStatus;
   isAuthenticated: boolean;
+  profiles: SavedProfile[];
+  activeProfileId: string | null;
   setSession: (session: AuthSession | null, persistence?: AuthPersistence) => void;
+  selectProfile: (profileId: string) => boolean;
+  forgetProfile: (profileId: string) => void;
+  createProfilePlaceholder: (serverUrl: string, username: string) => SavedProfile;
   setTheme: (theme: AppTheme) => void;
   setImmersivePlayerBackground: (enabled: boolean) => void;
   setLocalJellyfinLyrics: (enabled: boolean) => void;
@@ -27,6 +32,9 @@ const initialStoredSession = authSessionStorage.load();
 if (initialStoredSession) {
   jellyfinClient.setSession(initialStoredSession.session);
 }
+const initialProfile = initialStoredSession
+  ? profileStorage.upsertSession(initialStoredSession.session, initialStoredSession.persistence)
+  : null;
 
 export const useAppStore = create<AppStore>((set, get) => ({
   session: initialStoredSession?.session ?? null,
@@ -43,15 +51,76 @@ export const useAppStore = create<AppStore>((set, get) => ({
     isNetworkConnected: navigator.onLine,
     diagnostic: undefined
   },
+  profiles: profileStorage.loadProfiles(),
+  activeProfileId: initialProfile?.id ?? null,
   setSession: (session, persistence = "session") => {
     if (session) {
       authSessionStorage.save(session, persistence);
+      const profile = profileStorage.upsertSession(session, persistence);
       jellyfinClient.setSession(session);
+      set({
+        session,
+        authPersistence: persistence,
+        isAuthenticated: Boolean(session.accessToken),
+        profiles: profileStorage.loadProfiles(),
+        activeProfileId: profile.id
+      });
+      return;
     } else {
       authSessionStorage.clear();
       jellyfinClient.clearSession();
     }
-    set({ session, authPersistence: session ? persistence : null, isAuthenticated: Boolean(session?.accessToken) });
+    set({ session: null, authPersistence: null, isAuthenticated: false });
+  },
+  selectProfile: (profileId) => {
+    const stored = profileStorage.loadSession(profileId);
+    if (!stored?.session.accessToken) {
+      authSessionStorage.clear();
+      jellyfinClient.clearSession();
+      profileStorage.touchProfile(profileId, "none");
+      set({
+        session: null,
+        authPersistence: null,
+        isAuthenticated: false,
+        profiles: profileStorage.loadProfiles(),
+        activeProfileId: profileId
+      });
+      return false;
+    }
+
+    authSessionStorage.save(stored.session, stored.persistence);
+    profileStorage.touchProfile(profileId, stored.persistence);
+    jellyfinClient.setSession(stored.session);
+    set({
+      session: stored.session,
+      authPersistence: stored.persistence,
+      isAuthenticated: true,
+      profiles: profileStorage.loadProfiles(),
+      activeProfileId: profileId
+    });
+    return true;
+  },
+  forgetProfile: (profileId) => {
+    const activeProfileId = get().activeProfileId;
+    profileStorage.forgetProfile(profileId);
+    if (activeProfileId === profileId) {
+      authSessionStorage.clear();
+      jellyfinClient.clearSession();
+      set({
+        session: null,
+        authPersistence: null,
+        isAuthenticated: false,
+        profiles: profileStorage.loadProfiles(),
+        activeProfileId: null
+      });
+      return;
+    }
+    set({ profiles: profileStorage.loadProfiles() });
+  },
+  createProfilePlaceholder: (serverUrl, username) => {
+    const profile = profileStorage.createPlaceholder(serverUrl, username);
+    set({ profiles: profileStorage.loadProfiles(), activeProfileId: profile.id });
+    return profile;
   },
   setTheme: (theme) => {
     preferenceStorage.saveTheme(theme);

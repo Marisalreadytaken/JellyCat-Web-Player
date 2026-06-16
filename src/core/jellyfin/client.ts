@@ -199,27 +199,22 @@ class JellyfinClient {
     return { playlists, total: data.TotalRecordCount ?? playlists.length };
   }
 
-  async createPlaylist(name: string): Promise<void> {
+  async createPlaylist(name: string): Promise<string> {
     const session = this.requireSession();
-    await this.request(`/Playlists?${encodeQuery([
+    const created = await this.request<{ Id?: string }>(`/Playlists?${encodeQuery([
       ["name", name],
       ["userId", session.userId],
       ["mediaType", "Audio"]
     ])}`, { method: "POST", acceptJson: true });
+    if (!created.Id) throw new Error("Jellyfin did not return the created playlist ID.");
+    return created.Id;
   }
 
   async renamePlaylist(playlistId: string, newName: string): Promise<string> {
     const tracks = await this.getPlaylistTracks(playlistId);
     const cover = await this.fetchArtworkBytes(playlistId).catch(() => null);
     await this.deletePlaylist(playlistId);
-    const session = this.requireSession();
-    const created = await this.request<{ Id?: string }>(`/Playlists?${encodeQuery([
-      ["name", newName],
-      ["userId", session.userId],
-      ["mediaType", "Audio"]
-    ])}`, { method: "POST", acceptJson: true });
-    const newId = created.Id;
-    if (!newId) throw new Error("Jellyfin did not return the renamed playlist ID.");
+    const newId = await this.createPlaylist(newName);
     if (tracks.length) await this.addTracksToPlaylist(newId, tracks.map((track) => track.id));
     if (cover) await this.uploadPlaylistImage(newId, cover.buffer, cover.mimeType);
     return newId;
