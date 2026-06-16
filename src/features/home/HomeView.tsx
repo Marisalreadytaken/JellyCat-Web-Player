@@ -7,7 +7,6 @@ import { jellyfinClient } from "@core/jellyfin";
 import { usePlayerStore } from "@core/player/audioService";
 import { useRecentActivityStore } from "@core/player/recentActivity";
 import { buildSmartMix, smartMixDefinitions } from "@core/player/smartMixes";
-import { recentTrackStorage } from "@core/storage/storage";
 import type { SmartMixId } from "@domain/types";
 import { Artwork } from "@shared/ui/artwork";
 import { loadSongsSort } from "../library/songsPreferences";
@@ -19,7 +18,6 @@ export function HomeView() {
   const player = usePlayerStore();
   const recentItems = useRecentActivityStore((state) => state.items);
   const [mixStatus, setMixStatus] = useState("");
-  const [recentTracks] = useState(() => recentTrackStorage.load());
   const albumsQuery = useQuery({
     queryKey: ["home", "recent-albums"],
     queryFn: () => jellyfinClient.getRecentAlbums(12),
@@ -151,7 +149,7 @@ export function HomeView() {
             disabled={!connection.isServerAvailable || (mix.id === "artist-radio" && !player.currentTrack?.artistId)}
             onClick={() => void playSmartMix(mix.id)}
           >
-            <icons.shuffle size={18} />
+            {mix.id === "recently-added" ? <icons.play size={18} /> : <icons.shuffle size={18} />}
             <strong>{mix.title}</strong>
             <span>{mix.id === "artist-radio" && !player.currentTrack?.artistId ? "Start a track first" : mix.description}</span>
           </button>
@@ -172,25 +170,19 @@ export function HomeView() {
         </div>
       ) : <EmptyState label="NO RECENT ACTIVITY" />}
       <Divider />
-      <Section title="TRACKS :: RECENTLY PLAYED" />
-      {recentTracks.length ? (
-        <div className="compact-track-list">
-          {recentTracks.slice(0, 6).map((track) => (
-            <button key={track.id} className="settings-row compact-track-row" type="button" onClick={() => player.play(recentTracks, recentTracks.findIndex((item) => item.id === track.id))}>
-              <span>{track.title}</span>
-              <span className="spacer" />
-              <span>{track.artistName}</span>
-            </button>
-          ))}
-        </div>
-      ) : <EmptyState label="NO RECENT TRACKS" />}
-      <Divider />
       <Section title="TRACKS :: NEW" />
       {recentTracksQuery.isLoading ? <LoadingState label="LOADING TRACKS" /> : recentTracksQuery.data?.length ? (
         <div className="compact-track-list">
           {recentTracksQuery.data.slice(0, 6).map((track, index) => (
             <button key={track.id} className="settings-row compact-track-row" type="button" onClick={() => player.play(recentTracksQuery.data ?? [], index)}>
-              <span>{track.title}</span>
+              <Artwork
+                className="compact-track-artwork"
+                itemId={track.artworkItemId ?? track.albumId}
+                tag={track.artworkTag}
+                icon={icons.music}
+                maxHeight={80}
+              />
+              <span className="compact-track-title">{track.title}</span>
               <span className="spacer" />
               <span>{track.artistName}</span>
             </button>

@@ -661,6 +661,41 @@ a {
   text-align: left;
 }
 
+.compact-track-artwork {
+  flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
+  overflow: hidden;
+  border: 1px solid var(--j-border);
+  background: var(--j-bg3);
+}
+
+.compact-track-artwork img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.compact-track-artwork .art-placeholder {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  place-items: center;
+}
+
+.compact-track-artwork .art-placeholder svg {
+  width: 16px;
+  height: 16px;
+}
+
+.compact-track-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .page-controls {
   display: inline-flex;
   align-items: center;
