@@ -27,7 +27,7 @@ services:
     container_name: Jellycat
     image: maralreadytaken/jellycat:latest
     ports:
-      - "3003:80"
+      - "3003:8080"
     restart: unless-stopped
 ```
 ```
