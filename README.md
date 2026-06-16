@@ -10,6 +10,15 @@ JellyCat is a static browser client for Jellyfin music libraries. The app has no
 <img width="800" height="415" alt="ScreenRecording2026-06-03at0 09 20-ezgif com-video-to-gif-converter" src="https://github.com/user-attachments/assets/0be89ccd-285e-4e3b-a756-4d794e3a6c64" />
 
 
+To update to the latest version on docker compose:
+
+<img width="239" height="57" alt="Screenshot 2026-06-16 at 15 57 14" src="https://github.com/user-attachments/assets/747dce24-460c-44f7-a8e6-351121cec751" />
+
+```
+docker compose pull jellycat
+docker compose up -d jellycat
+```
+
 ## Run From Docker Hub
 
 ```bash
@@ -36,11 +45,7 @@ docker compose up -d
 
 `docker-compose.yml` uses the published `maralreadytaken/jellycat:latest` image.
 
-To update to the latest version on docker compose:
-```
-docker compose pull jellycat
-docker compose up -d jellycat
-```
+
 
 
 To build the self-hosted Docker image locally:
