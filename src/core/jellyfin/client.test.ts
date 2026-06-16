@@ -90,6 +90,64 @@ describe("jellyfin mappings", () => {
   });
 });
 
+describe("search helpers", () => {
+  it("builds forgiving variants for and/ampersand artist names", () => {
+    expect(jellyfinInternals.buildSearchVariants("earth wind and fire")).toEqual([
+      "earth wind and fire",
+      "earth wind & fire",
+      "earth wind fire"
+    ]);
+  });
+
+  it("normalizes punctuation-only differences in search variants", () => {
+    expect(jellyfinInternals.buildSearchVariants(" earth, wind & fire ")).toEqual([
+      "earth, wind & fire",
+      "earth wind & fire",
+      "earth wind and fire",
+      "earth wind fire"
+    ]);
+  });
+
+  it("adds apostrophe variants for compact contractions", () => {
+    expect(jellyfinInternals.buildSearchVariants("AINT")).toContain("AIN'T");
+  });
+
+  it("loosely matches token subsets and apostrophe-free contractions", () => {
+    expect(jellyfinInternals.looseMatches("earth wind", ["Earth, Wind & Fire"])).toBe(true);
+    expect(jellyfinInternals.looseMatches("AINT", ["AIN'T NO SUNSHINE"])).toBe(true);
+    expect(jellyfinInternals.looseSearchKey("AIN’T NO SUNSHINE")).toContain("aint");
+  });
+
+  it("merges duplicate search result ids while preserving first-seen order", () => {
+    const merged = jellyfinInternals.mergeSearchResults([
+      {
+        artists: [{ id: "artist-1", name: "Earth, Wind & Fire" }],
+        albums: [{ id: "album-1", name: "Album", artistName: "Artist" }],
+        tracks: [{ id: "track-1", title: "Song", albumId: "album-1", artistName: "Artist", albumName: "Album", durationTicks: 1, isFavorite: false }]
+      },
+      {
+        artists: [
+          { id: "artist-1", name: "Earth Wind and Fire" },
+          { id: "artist-2", name: "Other Artist" }
+        ],
+        albums: [
+          { id: "album-1", name: "Album Duplicate", artistName: "Artist" },
+          { id: "album-2", name: "Other Album", artistName: "Other Artist" }
+        ],
+        tracks: [
+          { id: "track-1", title: "Song Duplicate", albumId: "album-1", artistName: "Artist", albumName: "Album", durationTicks: 1, isFavorite: false },
+          { id: "track-2", title: "Other Song", albumId: "album-2", artistName: "Other Artist", albumName: "Other Album", durationTicks: 1, isFavorite: false }
+        ]
+      }
+    ]);
+
+    expect(merged.artists.map((artist) => artist.id)).toEqual(["artist-1", "artist-2"]);
+    expect(merged.albums.map((album) => album.id)).toEqual(["album-1", "album-2"]);
+    expect(merged.tracks.map((track) => track.id)).toEqual(["track-1", "track-2"]);
+    expect(merged.artists[0].name).toBe("Earth, Wind & Fire");
+  });
+});
+
 describe("device id generation", () => {
   it("falls back when crypto.randomUUID is unavailable", () => {
     vi.spyOn(globalThis.crypto, "randomUUID").mockImplementation(undefined as never);
